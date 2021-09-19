@@ -7,8 +7,8 @@ It was used for:
 - finding 10th solution of equation 2^n = 5 (mod n) (OEIS [A128121](https://oeis.org/A128121))
 
 Some things that would be good to improve in case if i return to this code (TODO list):
-- optimize scanning by reducing exponents in Common.pow()
-- optimize Common.pow() function by using fewer multiplications, e.g. x^15 = (x^3)^5
+- optimize scanning by reducing exponents in Modules.pow()
+- optimize Modules.pow() function by using fewer multiplications, e.g. x^15 = (x^3)^5
 - use Math.multiplyHigh() for larger set of numbers
 - add sieving by quadratic residues, e.g. for 2^n-3 scan only 1, 5, 19, 23 (mod 24) and etc
 - make Launcher.fastScan() mode faster
