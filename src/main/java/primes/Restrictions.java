@@ -7,6 +7,7 @@ import common.LongMod;
 import common.Modules;
 
 import java.math.BigInteger;
+import java.util.function.BinaryOperator;
 
 public class Restrictions {
 
@@ -91,6 +92,14 @@ public class Restrictions {
                                      BigInteger C, BigInteger A, BigInteger B,
                                      BigInteger p, BigInteger a, BigInteger b)
     {
+        return merge(base, targetRemainder, C, A, B, p, a, b, base::modPow);
+    }
+
+    public static BigInteger[] merge(BigInteger base, BigInteger targetRemainder,
+                                     BigInteger C, BigInteger A, BigInteger B,
+                                     BigInteger p, BigInteger a, BigInteger b,
+                                     BinaryOperator<BigInteger> baseModPow)
+    {
         assert base.compareTo(BigInteger.ONE) > 0;
         BigInteger[] withP = Modules.divideLinearSum(A, B, p);
         if (withP == null) {
@@ -103,9 +112,8 @@ public class Restrictions {
         A = newAB[0].divide(C);
         B = newAB[1].divide(C);
         BigInteger N = C.multiply(p);
-        targetRemainder = Common.mod(targetRemainder, N);
 
-        if (Modules.pow(base, B.add(A).multiply(N), N).equals(targetRemainder)) {
+        if (baseModPow.apply(B.add(A).multiply(N), N).equals(Common.mod(targetRemainder, N))) {
             return new BigInteger[] {A, B};
         } else {
             return null;

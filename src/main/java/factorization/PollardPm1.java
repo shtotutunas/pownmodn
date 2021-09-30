@@ -1,7 +1,6 @@
 package factorization;
 
 import common.Common;
-import common.Modules;
 import org.apache.commons.math3.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +57,7 @@ public class PollardPm1 {
 
             b = a;
             for (int j = 0; j < M.length; j++) {
-                BigInteger nextB = Modules.pow(b, M[j], N);
+                BigInteger nextB = b.modPow(M[j], N);
                 BigInteger d = N.gcd(nextB.subtract(BigInteger.ONE));
                 if (d.equals(N)) {
                     d = tryMSteps(b, N, j);
@@ -88,7 +87,7 @@ public class PollardPm1 {
         }
         long p = primes.get(pi);
         assert p >= 3;
-        BigInteger H = Modules.pow(b, BigInteger.valueOf(p), N);
+        BigInteger H = b.modPow(BigInteger.valueOf(p), N);
         GcdDetector gcdDetector = new GcdDetector(N, gcdCallDelay);
         BigInteger g = gcdDetector.add(H.subtract(BigInteger.ONE));
         if (g != null) {
@@ -105,7 +104,7 @@ public class PollardPm1 {
             int diff = (int) (nextP - p);
             int idx = (diff>>1) - 1;
             if (D[idx] == null) {
-                D[idx] = Modules.pow(b, BigInteger.valueOf(diff), N);
+                D[idx] = b.modPow(BigInteger.valueOf(diff), N);
             }
             H = H.multiply(D[idx]).mod(N);
             g = gcdDetector.add(H.subtract(BigInteger.ONE));
@@ -127,7 +126,7 @@ public class PollardPm1 {
 
     private BigInteger tryMSteps(BigInteger b, BigInteger N, int step) {
         for (int i = mStepStart[step]; i < mStepEnd[step]; i++) {
-            b = Modules.pow(b, BigInteger.valueOf(maxPower(primes.get(i))), N);
+            b = b.modPow(BigInteger.valueOf(maxPower(primes.get(i))), N);
             BigInteger d = N.gcd(Common.mod(b.subtract(BigInteger.ONE), N));
             if (!d.equals(BigInteger.ONE)) {
                 return d;

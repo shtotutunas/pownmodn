@@ -1,5 +1,4 @@
 import common.Common;
-import common.Modules;
 import factorization.Factorization;
 import factorization.FactorizationDB;
 import factorization.Factorizer;
@@ -9,6 +8,8 @@ import org.slf4j.LoggerFactory;
 import primes.GoodPrimes;
 import primes.Primes;
 import primes.Restrictions;
+import scan.ModPowCalculatorFactory;
+import scan.Scanner;
 
 import java.math.BigInteger;
 import java.util.concurrent.ExecutorService;
@@ -31,6 +32,8 @@ public class Solver {
     private final ExecutorService executor;
     private final FactorizationDB factorizationDB;
     private final Factorizer factorizer;
+
+    private final ModPowCalculatorFactory modPowCalculatorFactory;
     private final Scanner scanner;
     private final long scanLogThreshold;
     private final boolean logSolutions;
@@ -61,8 +64,10 @@ public class Solver {
 
         this.factorizationDB = factorizationDB;
         this.factorizer = launch.getFactorizer(primes);
+
+        this.modPowCalculatorFactory = new ModPowCalculatorFactory(baseBig);
         this.scanner = new Scanner(baseBig, targetBig, sieveBound, sieveLengthFactor, primes, executor, threadsNumber,
-                maxLengthPerTask, minParallelLength, scanLogThreshold);
+                maxLengthPerTask, minParallelLength, modPowCalculatorFactory, scanLogThreshold);
         this.scanLogThreshold = scanLogThreshold;
         this.logSolutions = logSolutions;
 
@@ -105,7 +110,9 @@ public class Solver {
 
             BigInteger P = BigInteger.valueOf(goodPrimes.get(i));
             BigInteger[] newAB = Restrictions.merge(baseBig, targetBig, C, A, B,
-                    P, BigInteger.valueOf(goodPrimes.getA(i)), BigInteger.valueOf(goodPrimes.getB(i)));
+                    P, BigInteger.valueOf(goodPrimes.getA(i)), BigInteger.valueOf(goodPrimes.getB(i)),
+                    (exp, mod) -> modPowCalculatorFactory.createCalculator(exp).calculate(mod));
+
             if (newAB != null) {
                 BigInteger gcd = newAB[0].gcd(newAB[1]);
                 if (gcd.compareTo(BigInteger.ONE) > 0) {
@@ -146,7 +153,7 @@ public class Solver {
 
         factorization.forEachDivisor(d -> {
             BigInteger N = C.multiply(d);
-            if (Common.mod(Modules.pow(baseBig, N, N).subtract(targetBig), N).signum() == 0) {
+            if (baseBig.modPow(N, N).equals(Common.mod(targetBig, N))) {
                 if (logSolutions) {
                     log.info("Found solution: {} = {}", N, stackToString(d, pos));
                 }

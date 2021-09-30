@@ -12,8 +12,9 @@ public interface LongMod {
 
     static LongMod create(long mod) {
         assert mod > 0;
-        if (mod <= Common.MULTIPLY_HIGH_BOUND) {
-            return new LongBased(mod);
+        LongBinaryOperator modMultiplier = Modules.modMultiplier(mod);
+        if (modMultiplier != null) {
+            return new LongBased(mod, modMultiplier);
         } else {
             return new BigIntegerBased(mod);
         }
@@ -26,9 +27,9 @@ public interface LongMod {
         private long aux = 1;
         private long current = 1;
 
-        private LongBased(long mod) {
+        private LongBased(long mod, LongBinaryOperator modMultiplier) {
             this.mod = mod;
-            this.modMultiplier = (mod <= Common.MAX_LONG_SQRT) ? Modules.modMultiplier32bit(mod) : Modules.modMultiplier42bit(mod);
+            this.modMultiplier = modMultiplier;
         }
 
         @Override

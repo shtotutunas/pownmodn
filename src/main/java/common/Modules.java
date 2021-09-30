@@ -5,64 +5,36 @@ import java.util.function.LongBinaryOperator;
 
 public class Modules {
 
-    // returns b^n % mod
-    public static BigInteger pow(BigInteger b, BigInteger n, BigInteger mod) {
-        assert n.signum() >= 0;
-        if (mod.compareTo(Common.MAX_LONG_SQRT_BIG) <= 0) {
-            return BigInteger.valueOf(powSmall(Common.mod(b, mod).longValueExact(), n, modMultiplier32bit(mod.longValueExact())));
-        } else if (mod.compareTo(Common.MULTIPLY_HIGH_BOUND_BIG) <= 0) {
-            return BigInteger.valueOf(powSmall(Common.mod(b, mod).longValueExact(), n, modMultiplier42bit(mod.longValueExact())));
-        } else {
-            return b.modPow(n, mod);
-        }
-    }
-
-    // returns b^n % mod
-    public static long pow(long b, long n, long mod) {
+    public static int pow(int b, int n, int mod) {
         assert n >= 0;
-        if (mod <= Common.MAX_LONG_SQRT) {
-            return powSmall(Common.mod(b, mod), n, modMultiplier32bit(mod));
-        } if (mod <= Common.MULTIPLY_HIGH_BOUND) {
-            return powSmall(Common.mod(b, mod), n, modMultiplier42bit(mod));
-        } else {
-            return BigInteger.valueOf(b).modPow(BigInteger.valueOf(n), BigInteger.valueOf(mod)).longValueExact();
-        }
-    }
+        assert mod > 0;
 
-    private static long powSmall(long b, long n, LongBinaryOperator modMultiplier) {
-        assert n >= 0;
-        long t = b;
         long res = 1;
+        long t = b;
         while (n > 0) {
             if ((n&1) == 1) {
-                res = modMultiplier.applyAsLong(res, t);
+                res = (res*t)%mod;
             }
-            t = modMultiplier.applyAsLong(t, t);
+            t = (t*t)%mod;
             n >>= 1;
         }
-        return res;
+        return (int) (res%mod);
     }
 
-    private static long powSmall(long b, BigInteger n, LongBinaryOperator modMultiplier) {
-        assert n.signum() >= 0;
-        long t = b;
-        long res = 1;
-        int len = n.bitLength();
-        for (int i = 0; i < len; i++) {
-            if (n.testBit(i)) {
-                res = modMultiplier.applyAsLong(res, t);
-            }
-            t = modMultiplier.applyAsLong(t, t);
-        }
-        return res;
-    }
-
-    public static LongBinaryOperator modMultiplier32bit(long mod) {
-        assert mod > 0;
-        assert mod <= Common.MAX_LONG_SQRT;
+    public static LongBinaryOperator modMultiplier(long mod) {
         if (mod == 1) {
             return (a, b) -> 0;
         }
+        if (mod <= Common.MAX_LONG_SQRT) {
+            return modMultiplier32bit(mod);
+        } else {
+            return modMultiplier42bit(mod);
+        }
+    }
+
+    private static LongBinaryOperator modMultiplier32bit(long mod) {
+        assert mod > 0;
+        assert mod <= Common.MAX_LONG_SQRT;
 
         return (a, b) -> {
             assert a >= 0;
@@ -73,14 +45,21 @@ public class Modules {
         };
     }
 
-    public static LongBinaryOperator modMultiplier42bit(long mod) {
+    private static LongBinaryOperator modMultiplier42bit(long mod) {
         assert mod > 0;
-        assert mod <= Common.MULTIPLY_HIGH_BOUND;
-        if (mod == 1) {
-            return (a, b) -> 0;
+        if (mod >= (1L<<62)) {
+            return null;
         }
 
         long r64 = ((Long.MAX_VALUE % mod + 1) << 1) % mod;
+        if (mod > (1L<<42)) {
+            long maxR = mod-1;
+            long maxH = Math.multiplyHigh(maxR, maxR);
+            if ((maxH > 0) && ((Long.MAX_VALUE - maxR) / maxH < r64)) {
+                return null;
+            }
+        }
+
         return (a, b) -> {
             assert a >= 0;
             assert a < mod;

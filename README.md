@@ -7,9 +7,9 @@ It was used for:
 - finding 10th solution of equation 2^n = 5 (mod n) (OEIS [A128121](https://oeis.org/A128121))
 
 Some things that would be good to improve in case if i return to this code (TODO list):
-- optimize scanning by reducing exponents in Modules.pow()
-- optimize Modules.pow() function by using fewer multiplications, e.g. x^15 = (x^3)^5
-- use Math.multiplyHigh() for larger set of numbers
+- add more comments :D
+- make scanner task code faster (e.g. use long instead of BigInteger where it's possible)
+- optimize code that runs in main thread
 - add sieving by quadratic residues, e.g. for 2^n-3 scan only 1, 5, 19, 23 (mod 24) and etc
-- make Launcher.fastScan() mode faster
+- try to make ModPowCalculator faster by using fewer multiplications in exponentiation
 - check if it's possible to generate good primes faster, e.g. if use Index calculus algorithm for discrete logarithm 

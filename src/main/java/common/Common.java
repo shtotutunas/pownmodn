@@ -14,8 +14,6 @@ public class Common {
     public static final BigInteger MAX_LONG_SQRT_BIG = MAX_LONG.sqrt();
     public static final long MAX_LONG_SQRT = MAX_LONG_SQRT_BIG.longValueExact();
 
-    public static final long MULTIPLY_HIGH_BOUND = 5541191377756L; // ~2^(127/3)
-    public static final BigInteger MULTIPLY_HIGH_BOUND_BIG = BigInteger.valueOf(MULTIPLY_HIGH_BOUND);
     public static final BigInteger MAX_INT = BigInteger.valueOf(Integer.MAX_VALUE);
 
     public static final Comparator<BigInteger> COMPARE_BY_BIT_LENGTH = Comparator

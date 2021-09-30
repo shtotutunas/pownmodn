@@ -23,7 +23,7 @@ public class SolverTest {
     public void testSolve(int base, int absT, int ceil) {
         Map<Integer, NavigableSet<BigInteger>> solutions = new HashMap<>();
         for (int i = 1; i <= ceil; i++) {
-            int r = (int) Modules.pow(base, i, i);
+            int r = Modules.pow(base, i, i);
             while (r <= absT) {
                 solutions.computeIfAbsent(r, x -> new TreeSet<>()).add(BigInteger.valueOf(i));
                 r += i;
@@ -43,7 +43,7 @@ public class SolverTest {
 
             BigInteger T = BigInteger.valueOf(t);
             TreeSet<BigInteger> actual = new TreeSet<>(launch.getSolutions());
-            actual.forEach(x -> Assertions.assertEquals(Modules.pow(BigInteger.valueOf(base), x, x), T.mod(x),
+            actual.forEach(x -> Assertions.assertEquals(BigInteger.valueOf(base).modPow(x, x), T.mod(x),
                     "base=" + base + ", target=" + T + ", x=" + x));
             Assertions.assertEquals(solutions.getOrDefault(t, new TreeSet<>()), actual.headSet(BigInteger.valueOf(ceil), true),
                     "base=" + base + ", target=" + t);

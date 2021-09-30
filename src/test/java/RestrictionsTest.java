@@ -66,7 +66,7 @@ public class RestrictionsTest {
             Map<Long, Map<Long, Long>> A = new HashMap<>();
             Map<Long, Map<Long, Long>> B = new HashMap<>();
             for (long n = 2; n <= nLimit; n++) {
-                var ab = TestUtils.generateAB(base, n, n-1);
+                var ab = TestUtils.generateAB(base, (int) n, n-1);
                 A.put(n, ab.getFirst());
                 B.put(n, ab.getSecond());
             }

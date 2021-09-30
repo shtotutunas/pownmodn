@@ -9,19 +9,19 @@ public class Main {
 
     static final long base = 2;
     static final long target = 5;
-    static final BigInteger solutionCeil = BigInteger.TEN.pow(13);
+    static final BigInteger solutionCeil = BigInteger.TEN.pow(14);
     static final int threadsNumber = 6;
     static final int primeTestCertainty = 50;
 
     static final Launch launch = Launch.solverPrecalculated();
     //static final Launch launch = Launch.factorizationsGenerator(600, (long) 1e6, (long) 1e7, (long) 1e6, primeTestCertainty, threadsNumber);
 
-    static final long scanLogThreshold = 10000000;
+    static final long scanLogThreshold = 15000000;
     static final boolean logSolutions = true;
     static final int maxLengthPerTask = 1<<24;
     static final int minParallelLength = 4;
     static final int sieveBound = 10000;
-    static final int sieveLengthFactor = 10;
+    static final int sieveLengthFactor = 5;
 
     public static void main(String[] args) {
         long initStartTime = System.currentTimeMillis();

@@ -1,3 +1,5 @@
+package scan;
+
 import com.carrotsearch.hppc.IntObjectHashMap;
 import com.carrotsearch.hppc.IntObjectMap;
 import common.Common;
@@ -32,11 +34,15 @@ public class Scanner {
     private final int threadsNumber;
     private final int maxLengthPerTask;
     private final int minParallelLength;
+
+    private final ModPowCalculatorFactory modPowCalculatorFactory;
     private final long scanLogThreshold;
 
     public Scanner(BigInteger base, BigInteger target, int sieveBound, int sieveLengthFactor, Primes primes,
-                   ExecutorService executor, int threadsNumber, int maxLengthPerTask, int minParallelLength, long scanLogThreshold)
+                   ExecutorService executor, int threadsNumber, int maxLengthPerTask, int minParallelLength,
+                   ModPowCalculatorFactory modPowCalculatorFactory, long scanLogThreshold)
     {
+        assert base.compareTo(BigInteger.TWO) >= 0;
         assert sieveBound >= 0;
         assert threadsNumber > 0;
         assert maxLengthPerTask >= 2;
@@ -53,7 +59,7 @@ public class Scanner {
             primesBuf.add(BigInteger.valueOf(p));
             int[] inv = new int[p];
             for (int j = 1; j < p; j++) {
-                inv[j] = (int) Modules.pow(j, p-2, p);
+                inv[j] = Modules.pow(j, p-2, p);
             }
             invBuf.add(inv);
         }
@@ -64,6 +70,7 @@ public class Scanner {
         this.threadsNumber = threadsNumber;
         this.maxLengthPerTask = maxLengthPerTask;
         this.minParallelLength = minParallelLength;
+        this.modPowCalculatorFactory = modPowCalculatorFactory;
         this.scanLogThreshold = scanLogThreshold;
     }
 
@@ -87,12 +94,16 @@ public class Scanner {
         AtomicLong counter = new AtomicLong(0);
         BiConsumer<BigInteger[], Integer> resultConsumer = (newResults, newCount) -> {
             synchronized (results) {
-                for (BigInteger x : newResults) {
-                    results.add(x);
+                if (newResults != null) {
+                    for (BigInteger x : newResults) {
+                        results.add(x);
+                    }
                 }
             }
             counter.addAndGet(newCount);
         };
+
+        ModPowCalculator modPowCalculator = modPowCalculatorFactory.createCalculator(C);
 
         Task[] tasks = new Task[(int) tasksNumber];
         BigInteger start = B;
@@ -101,7 +112,7 @@ public class Scanner {
         long controlSum = 0;
         for (int i = 0; i < tasksNumber; i++) {
             int curLength = (i < plusOne) ? taskLength+1 : taskLength;
-            tasks[i] = new Task(C, start, A, curLength, primeBound, resultConsumer);
+            tasks[i] = new Task(C, start, A, curLength, primeBound, modPowCalculator, resultConsumer);
             start = start.add((i < plusOne) ? biggerStep : smallerStep);
             controlSum += curLength;
         }
@@ -180,16 +191,18 @@ public class Scanner {
         private final BigInteger step;
         private final int length;
         private final long primeBound;
+        private final ModPowCalculator modPowCalculator;
         private final BiConsumer<BigInteger[], Integer> resultConsumer;
 
         private Task(BigInteger multiplier, BigInteger start, BigInteger step, int length, long primeBound,
-                     BiConsumer<BigInteger[], Integer> resultConsumer)
+                     ModPowCalculator modPowCalculator, BiConsumer<BigInteger[], Integer> resultConsumer)
         {
             this.multiplier = multiplier;
             this.start = start;
             this.step = step;
             this.length = length;
             this.primeBound = primeBound;
+            this.modPowCalculator = modPowCalculator;
             this.resultConsumer = resultConsumer;
         }
 
@@ -197,7 +210,7 @@ public class Scanner {
         public void run() {
             BitSet bits = generateBitSet(start, step, length, primeBound);
             if (bits == null) {
-                resultConsumer.accept(new BigInteger[0], 0);
+                resultConsumer.accept(null, 0);
                 return;
             }
             BigInteger M = start;
@@ -205,7 +218,7 @@ public class Scanner {
             IntObjectMap<BigInteger> mSteps = new IntObjectHashMap<>();
             mSteps.put(1, step);
 
-            Stream.Builder<BigInteger> result = Stream.builder();
+            Stream.Builder<BigInteger> result = null;
             int counter = 0;
             int prev = 0;
             for (int i = 0; i < length; i++) {
@@ -225,14 +238,17 @@ public class Scanner {
                 }
 
                 counter++;
-                if (Common.mod(Modules.pow(base, multiplier, M).subtract(target), M).signum() == 0) {
+                if (modPowCalculator.calculate(M).equals(Common.mod(target, M))) {
                     BigInteger candidate = M.multiply(multiplier);
-                    if (Common.mod(Modules.pow(base, candidate, candidate).subtract(target), candidate).signum() == 0) {
+                    if (base.modPow(candidate, candidate).equals(Common.mod(target, candidate))) {
+                        if (result == null) {
+                            result = Stream.builder();
+                        }
                         result.add(M);
                     }
                 }
             }
-            resultConsumer.accept(result.build().toArray(BigInteger[]::new), counter);
+            resultConsumer.accept((result != null) ? result.build().toArray(BigInteger[]::new) : null, counter);
 
             if (length >= scanLogThreshold) {
                 long taskStart = start.divide(step).longValueExact();

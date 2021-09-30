@@ -31,7 +31,7 @@ public class GoodPrimesTest {
             Map<Long, Map<Long, Long>> A = new HashMap<>();
             Map<Long, Map<Long, Long>> B = new HashMap<>();
             for (long n = 2; n <= pLimit; n++) {
-                var ab = TestUtils.generateAB(base, n, tLimit);
+                var ab = TestUtils.generateAB(base, (int) n, tLimit);
                 A.put(n, ab.getFirst());
                 B.put(n, ab.getSecond());
             }
