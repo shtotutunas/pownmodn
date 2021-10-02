@@ -133,19 +133,20 @@ public class QuadraticResidueSieve {
     private static long[][][] generatePrecalculatedBuffers(boolean[] residue) {
         int m = residue.length;
         LongObjectMap<List<long[]>> cache = new LongObjectHashMap<>();
-        int length = StrictMath.multiplyExact(m/ArithmeticUtils.gcd(m, 64), 64);
+        int longLength = m/ArithmeticUtils.gcd(m, 64);
+        int bitLength = StrictMath.multiplyExact(longLength, 64);
         long[][][] buf = new long[m][m][];
         for (int a = 0; a < m; a++) {
             for (int b = 0; b < m; b++) {
-                BitSet bitSet = generateBitSet(a, b, length, residue);
+                BitSet bitSet = generateBitSet(a, b, bitLength, residue);
                 boolean empty = true;
-                for (int i = 0; empty && (i < length); i++) {
+                for (int i = 0; empty && (i < bitLength); i++) {
                     empty = bitSet.get(i);
                 }
                 if (!empty) {
                     long[] array = bitSet.toLongArray();
-                    if (array.length != length) {
-                        array = Arrays.copyOf(array, length);
+                    if (array.length != longLength) {
+                        array = Arrays.copyOf(array, longLength);
                     }
                     buf[a][b] = intern(array, cache);
                 }
