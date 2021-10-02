@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import primes.Primes;
 
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,6 +18,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 public class Scanner {
@@ -24,10 +26,13 @@ public class Scanner {
 
     private final BigInteger base;
     private final BigInteger target;
+    private final long targetLong;
+
     private final long sieveBound;
     private final long sieveLengthFactor;
 
-    private final BigInteger[] primes;
+    private final BigInteger[] primesBig;
+    private final int[] primesInt;
     private final int[][] inv;
 
     private final ExecutorService executor;
@@ -35,12 +40,14 @@ public class Scanner {
     private final int maxLengthPerTask;
     private final int minParallelLength;
 
+    private final QuadraticResidueSieve evenQRSieve;
+    private final QuadraticResidueSieve oddQRSieve;
     private final ModPowCalculatorFactory modPowCalculatorFactory;
     private final long scanLogThreshold;
 
-    public Scanner(BigInteger base, BigInteger target, int sieveBound, int sieveLengthFactor, Primes primes,
+    public Scanner(BigInteger base, long target, int sieveBound, int sieveLengthFactor, Primes primes,
                    ExecutorService executor, int threadsNumber, int maxLengthPerTask, int minParallelLength,
-                   ModPowCalculatorFactory modPowCalculatorFactory, long scanLogThreshold)
+                   Boolean QRSievePrecalculated, ModPowCalculatorFactory modPowCalculatorFactory, long scanLogThreshold)
     {
         assert base.compareTo(BigInteger.TWO) >= 0;
         assert sieveBound >= 0;
@@ -48,33 +55,52 @@ public class Scanner {
         assert maxLengthPerTask >= 2;
 
         this.base = base;
-        this.target = target;
+        this.target = BigInteger.valueOf(target);
+        this.targetLong = target;
+
         this.sieveBound = sieveBound;
         this.sieveLengthFactor = sieveLengthFactor;
 
-        Stream.Builder<BigInteger> primesBuf = Stream.builder();
+        IntStream.Builder primesBuf = IntStream.builder();
         Stream.Builder<int[]> invBuf = Stream.builder();
         for (int i = 0; (i < primes.size()) && (primes.get(i) <= sieveBound); i++) {
             int p = (int) primes.get(i);
-            primesBuf.add(BigInteger.valueOf(p));
+            primesBuf.add(p);
             int[] inv = new int[p];
             for (int j = 1; j < p; j++) {
                 inv[j] = Modules.pow(j, p-2, p);
             }
             invBuf.add(inv);
         }
-        this.primes = primesBuf.build().toArray(BigInteger[]::new);
+        this.primesInt = primesBuf.build().toArray();
+        this.primesBig = Arrays.stream(primesInt).mapToObj(BigInteger::valueOf).toArray(BigInteger[]::new);
         this.inv = invBuf.build().toArray(int[][]::new);
 
         this.executor = executor;
         this.threadsNumber = threadsNumber;
         this.maxLengthPerTask = maxLengthPerTask;
         this.minParallelLength = minParallelLength;
+
+        if (QRSievePrecalculated != null) {
+            long startTime = System.currentTimeMillis();
+            this.evenQRSieve = QuadraticResidueSieve.create(this.target.intValueExact(), QRSievePrecalculated, true);
+            log.info("QR sieve for even exponents is created in {}ms: {}", System.currentTimeMillis() - startTime,
+                    (evenQRSieve != null) ? evenQRSieve.shortDescription() : null);
+
+            startTime = System.currentTimeMillis();
+            this.oddQRSieve = QuadraticResidueSieve.create(this.target.multiply(base).intValueExact(), QRSievePrecalculated, true);
+            log.info("QR sieve for odd exponents is created in {}ms: {}", System.currentTimeMillis() - startTime,
+                    (oddQRSieve != null) ? oddQRSieve.shortDescription() : null);
+        } else {
+            this.evenQRSieve = null;
+            this.oddQRSieve = null;
+        }
+
         this.modPowCalculatorFactory = modPowCalculatorFactory;
         this.scanLogThreshold = scanLogThreshold;
     }
 
-    public Pair<BigInteger[], Long> scan(BigInteger C, BigInteger A, BigInteger B, long length) {
+    public Pair<BigInteger[], Long> scan(BigInteger C, BigInteger A, BigInteger B, long length, boolean checkCandidates) {
         assert length > 0;
         long tasksNumber;
         if (length/threadsNumber < minParallelLength) {
@@ -112,7 +138,7 @@ public class Scanner {
         long controlSum = 0;
         for (int i = 0; i < tasksNumber; i++) {
             int curLength = (i < plusOne) ? taskLength+1 : taskLength;
-            tasks[i] = new Task(C, start, A, curLength, primeBound, modPowCalculator, resultConsumer);
+            tasks[i] = new Task(C, start, A, curLength, primeBound, modPowCalculator, checkCandidates, resultConsumer);
             start = start.add((i < plusOne) ? biggerStep : smallerStep);
             controlSum += curLength;
         }
@@ -139,20 +165,28 @@ public class Scanner {
         return Pair.create(results.build().toArray(BigInteger[]::new), counter.get());
     }
 
-    private BitSet generateBitSet(BigInteger start, BigInteger step, int length, long primeBound) {
-        BigInteger bound = BigInteger.valueOf(primeBound);
+    private BitSet generateBitSet(BigInteger start, BigInteger step, int length, long primeBound, QuadraticResidueSieve qrSieve) {
+        BigInteger primeBoundBig = BigInteger.valueOf(primeBound);
         Map<BigInteger, Integer> toSkip = new HashMap<>();
         BigInteger cur = start;
-        for (int i = 0; (i < length) && (cur.compareTo(bound) <= 0); i++) {
+        for (int i = 0; (i < length) && (cur.compareTo(primeBoundBig) <= 0); i++) {
             toSkip.put(cur, i);
             cur = cur.add(step);
         }
 
-        BitSet bitSet = new BitSet(length);
-        for (int i = 0; (i < primes.length) && (primes[i].compareTo(bound) <= 0); i++) {
-            int a = step.mod(primes[i]).intValueExact();
-            long b = start.mod(primes[i]).intValueExact();
-            int p = primes[i].intValueExact();
+        long startLong = (start.compareTo(Common.MAX_LONG) <= 0) ? start.longValueExact() : -1;
+        long stepLong = (step.compareTo(Common.MAX_LONG) <= 0) ? step.longValueExact() : -1;
+        BitSet bitSet = (qrSieve != null) ? qrSieve.generateBitSet(start, step, length) : new BitSet(length);
+        if (bitSet == null) {
+            return null;
+        }
+        for (int i = 0; (i < primesInt.length) && (primesInt[i] <= primeBound); i++) {
+            int p = primesInt[i];
+            if ((qrSieve != null) && qrSieve.isDivisor(p)) {
+                continue;
+            }
+            int a = (stepLong >= 0) ? (int) (stepLong%p) : step.mod(primesBig[i]).intValueExact();
+            long b = (startLong >= 0) ? startLong%p : start.mod(primesBig[i]).intValueExact();
             int pStart;
             int pStep;
             if (b == 0) {
@@ -176,7 +210,7 @@ public class Scanner {
                     bitSet.set(j);
                 }
 
-                Integer r = toSkip.get(primes[i]);
+                Integer r = toSkip.get(primesBig[i]);
                 if (r != null) {
                     bitSet.clear(r);
                 }
@@ -192,10 +226,11 @@ public class Scanner {
         private final int length;
         private final long primeBound;
         private final ModPowCalculator modPowCalculator;
+        private final boolean checkCandidates;
         private final BiConsumer<BigInteger[], Integer> resultConsumer;
 
         private Task(BigInteger multiplier, BigInteger start, BigInteger step, int length, long primeBound,
-                     ModPowCalculator modPowCalculator, BiConsumer<BigInteger[], Integer> resultConsumer)
+                     ModPowCalculator modPowCalculator, boolean checkCandidates, BiConsumer<BigInteger[], Integer> resultConsumer)
         {
             this.multiplier = multiplier;
             this.start = start;
@@ -203,51 +238,83 @@ public class Scanner {
             this.length = length;
             this.primeBound = primeBound;
             this.modPowCalculator = modPowCalculator;
+            this.checkCandidates = checkCandidates;
             this.resultConsumer = resultConsumer;
         }
 
         @Override
         public void run() {
-            BitSet bits = generateBitSet(start, step, length, primeBound);
+            BitSet bits = generateBitSet(start, step, length, primeBound, multiplier.testBit(0) ? oddQRSieve : evenQRSieve);
             if (bits == null) {
                 resultConsumer.accept(null, 0);
                 return;
             }
-            BigInteger M = start;
-
-            IntObjectMap<BigInteger> mSteps = new IntObjectHashMap<>();
-            mSteps.put(1, step);
 
             Stream.Builder<BigInteger> result = null;
             int counter = 0;
-            int prev = 0;
-            for (int i = 0; i < length; i++) {
-                if (bits.get(i)) {
-                    continue;
-                }
-                int move = i - prev;
-                if (move > 0) {
-                    BigInteger addM = mSteps.get(move);
-                    if (addM == null) {
-                        BigInteger moveBI = BigInteger.valueOf(move);
-                        addM = step.multiply(moveBI);
-                        mSteps.put(move, addM);
-                    }
-                    M = M.add(addM);
-                    prev = i;
-                }
+            int startWithBig = 0;
+            if ((start.compareTo(Common.MAX_LONG) <= 0) && (step.compareTo(Common.MAX_LONG) <= 0)) {
+                long startLong = start.longValueExact();
+                long stepLong = step.longValueExact();
+                startWithBig = (int) Math.min((Long.MAX_VALUE-startLong)/stepLong, length-1) + 1;
 
-                counter++;
-                if (modPowCalculator.calculate(M).equals(Common.mod(target, M))) {
-                    BigInteger candidate = M.multiply(multiplier);
-                    if (base.modPow(candidate, candidate).equals(Common.mod(target, candidate))) {
-                        if (result == null) {
-                            result = Stream.builder();
+                for (int i = 0; i < startWithBig; i++) {
+                    if (bits.get(i)) {
+                        continue;
+                    }
+                    counter++;
+                    if (checkCandidates) {
+                        long m = startLong + stepLong*i;
+                        if (modPowCalculator.calculate(m) == Common.mod(targetLong, m)) {
+                            BigInteger M = BigInteger.valueOf(m);
+                            BigInteger candidate = M.multiply(multiplier);
+                            if (base.modPow(candidate, candidate).equals(Common.mod(target, candidate))) {
+                                if (result == null) {
+                                    result = Stream.builder();
+                                }
+                                result.add(M);
+                            }
                         }
-                        result.add(M);
                     }
                 }
             }
+
+            if (startWithBig < length) {
+                BigInteger M = start;
+                int prev = 0;
+                IntObjectMap<BigInteger> mSteps = new IntObjectHashMap<>();
+                mSteps.put(1, step);
+
+                for (int i = startWithBig; i < length; i++) {
+                    if (bits.get(i)) {
+                        continue;
+                    }
+                    counter++;
+                    if (checkCandidates) {
+                        int move = i - prev;
+                        if (move > 0) {
+                            BigInteger addM = mSteps.get(move);
+                            if (addM == null) {
+                                addM = step.multiply(BigInteger.valueOf(move));
+                                mSteps.put(move, addM);
+                            }
+                            M = M.add(addM);
+                            prev = i;
+                        }
+
+                        if (modPowCalculator.calculate(M).equals(Common.mod(target, M))) {
+                            BigInteger candidate = M.multiply(multiplier);
+                            if (base.modPow(candidate, candidate).equals(Common.mod(target, candidate))) {
+                                if (result == null) {
+                                    result = Stream.builder();
+                                }
+                                result.add(M);
+                            }
+                        }
+                    }
+                }
+            }
+
             resultConsumer.accept((result != null) ? result.build().toArray(BigInteger[]::new) : null, counter);
 
             if (length >= scanLogThreshold) {

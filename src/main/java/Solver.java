@@ -1,4 +1,5 @@
 import common.Common;
+import common.Modules;
 import factorization.Factorization;
 import factorization.FactorizationDB;
 import factorization.Factorizer;
@@ -43,7 +44,7 @@ public class Solver {
 
     public Solver(long base, long target, BigInteger solutionCeil, Launch launch, FactorizationDB factorizationDB, int threadsNumber,
                   int sieveBound, int sieveLengthFactor, int maxLengthPerTask, int minParallelLength,
-                  long scanLogThreshold, boolean logSolutions)
+                  Boolean QRSievePrecalculated, long scanLogThreshold, boolean logSolutions)
     {
         assert base >= 2;
         this.base = base;
@@ -66,8 +67,8 @@ public class Solver {
         this.factorizer = launch.getFactorizer(primes);
 
         this.modPowCalculatorFactory = new ModPowCalculatorFactory(baseBig);
-        this.scanner = new Scanner(baseBig, targetBig, sieveBound, sieveLengthFactor, primes, executor, threadsNumber,
-                maxLengthPerTask, minParallelLength, modPowCalculatorFactory, scanLogThreshold);
+        this.scanner = new Scanner(baseBig, target, sieveBound, sieveLengthFactor, primes, executor, threadsNumber,
+                maxLengthPerTask, minParallelLength, QRSievePrecalculated, modPowCalculatorFactory, scanLogThreshold);
         this.scanLogThreshold = scanLogThreshold;
         this.logSolutions = logSolutions;
 
@@ -111,10 +112,10 @@ public class Solver {
             BigInteger P = BigInteger.valueOf(goodPrimes.get(i));
             BigInteger[] newAB = Restrictions.merge(baseBig, targetBig, C, A, B,
                     P, BigInteger.valueOf(goodPrimes.getA(i)), BigInteger.valueOf(goodPrimes.getB(i)),
-                    (exp, mod) -> modPowCalculatorFactory.createCalculator(exp).calculate(mod));
+                    this::baseModPow);
 
             if (newAB != null) {
-                BigInteger gcd = newAB[0].gcd(newAB[1]);
+                BigInteger gcd = Common.gcd(newAB[0], newAB[1]);
                 if (gcd.compareTo(BigInteger.ONE) > 0) {
                     continue;
                 }
@@ -126,6 +127,7 @@ public class Solver {
 
     private boolean tryFactorization(BigInteger C, BigInteger A, int pos) {
         if (C.equals(BigInteger.ONE)) {
+            launch.addSolution(BigInteger.ONE);
             return true;
         }
         Factorization factorization = null;
@@ -147,7 +149,7 @@ public class Solver {
             String logStr = base + "^" + C + ((target > 0) ? "" : "+") + (-target);
             log.info("Factorizing {} where {} = {}", logStr, C, stackToString(pos));
             factorization = factorizer.factorize(F);
-            launch.registerFactorizationCall(F, base, C.intValueExact(), target, A.longValueExact());
+            launch.registerFactorizationCall(F, baseBig, C, targetBig, A);
             log.info("Factorized in {}ms with {} composites: {} = {}", System.currentTimeMillis() - startTime, factorization.compositeCount(), logStr, factorization);
         }
 
@@ -171,7 +173,7 @@ public class Solver {
         if (length >= scanLogThreshold) {
             log.info("Start scanning {} * ({}x + {}) for x in [0; {}]...", stackToString(pos), A, B, length-1);
         }
-        Pair<BigInteger[], Long> result = scanner.scan(C, A, B, length);
+        Pair<BigInteger[], Long> result = scanner.scan(C, A, B, length, launch.checkCandidates());
         for (BigInteger m : result.getFirst()) {
             BigInteger solution = C.multiply(m);
             if (logSolutions) {
@@ -179,9 +181,11 @@ public class Solver {
             }
             launch.addSolution(solution);
         }
+        launch.registerScan(C, result.getSecond());
         if (length >= scanLogThreshold) {
             log.info("Scanned {} * ({}x + {}) for x in [0; {}] in {}ms: checked {} candidates ({}%)", stackToString(pos), A, B, length-1,
-                    System.currentTimeMillis() - startTime, result.getSecond(), result.getSecond() * 100.0 / length);
+                    System.currentTimeMillis() - startTime, result.getSecond(),
+                    String.format(Common.LOCALE, "%.2f", result.getSecond() * 100.0 / length));
         }
     }
 
@@ -211,6 +215,22 @@ public class Solver {
             buf.append(lastFactor);
         }
         return buf.toString();
+    }
+
+    private BigInteger baseModPow(BigInteger exp, BigInteger mod) {
+        if (exp.compareTo(Common.MAX_LONG) <= 0 && mod.compareTo(Common.MAX_INT) <= 0) {
+            return BigInteger.valueOf(Modules.pow(base, exp.longValueExact(), mod.intValueExact()));
+        } else {
+            return modPowCalculatorFactory.createCalculator(exp).calculate(mod);
+        }
+    }
+
+    public BigInteger getBase() {
+        return baseBig;
+    }
+
+    public BigInteger getTarget() {
+        return targetBig;
     }
 
     public void shutdown() {

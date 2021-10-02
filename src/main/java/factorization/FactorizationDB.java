@@ -121,12 +121,14 @@ public class FactorizationDB {
         return Factorization.fromPrimeFactors(factors);
     }
 
-    public static void logFactorizations(SortedMap<BigInteger, long[]> toFactor, Factorizer factorizer, int threadsNumber) {
+    public static void logFactorizations(BigInteger base, BigInteger target, SortedMap<BigInteger, Long> scanTime,
+                                         Factorizer factorizer, int threadsNumber)
+    {
         ExecutorService executor = Executors.newFixedThreadPool(threadsNumber);
         SortedMap<BigInteger, Future<Factorization>> tasks = new TreeMap<>();
-        toFactor.forEach((N, x) -> tasks.put(N, executor.submit(() -> factorizer.factorize(N))));
-        List<Pair<BigInteger, Double>> notFactorized = new ArrayList<>();
-        tasks.forEach((N, task) -> {
+        scanTime.forEach((exp, x) -> tasks.put(exp, executor.submit(() -> factorizer.factorize(base.pow(exp.intValueExact()).subtract(target)))));
+        List<Pair<BigInteger, Long>> notFactorized = new ArrayList<>();
+        tasks.forEach((exp, task) -> {
             Factorization factorization;
             try {
                 factorization = task.get();
@@ -134,11 +136,10 @@ public class FactorizationDB {
                 throw new RuntimeException(e);
             }
             System.out.println("---------------------------");
-            long[] x = toFactor.get(N);
-            System.out.println(visualize(x) + " = " + factorization);
+            System.out.println(visualize(base, exp, target) + " = " + factorization);
             if (factorization.compositeCount() > 0) {
                 System.out.println("Composites: " + factorization.composites());
-                notFactorized.add(Pair.create(N, calculatePriorityCoefficient(x[1], x[3])));
+                notFactorized.add(Pair.create(exp, scanTime.get(exp)));
             }
             System.out.flush();
         });
@@ -147,33 +148,14 @@ public class FactorizationDB {
         System.out.println("Prioritized list of not factorized yet:");
         notFactorized.sort(Comparator.comparing(Pair::getSecond, Comparator.reverseOrder()));
         for (var item : notFactorized) {
-            long[] x = toFactor.get(item.getFirst());
-            System.out.println(visualize(x) + ": priority=" + String.format("%2.2E", item.getSecond()) + ";  A=" + x[3]);
+            System.out.println(visualize(base, item.getFirst(), target) + ": candidates=" + item.getSecond());
         }
 
         System.out.flush();
         executor.shutdownNow();
     }
 
-    private static double calculatePriorityCoefficient(long C, long A) {
-        double x = (1.0 / C) / A;
-        for (long i = 2; A/i >= i; i++) {
-            if (A%i == 0) {
-                x = (x*i) / (i-1);
-                while (A%i == 0) {
-                    A /= i;
-                }
-            }
-        }
-        if (A > 1) {
-            x = (x*A) / (A-1);
-        }
-        return x;
+    private static String visualize(BigInteger base, BigInteger exp, BigInteger target) {
+        return base + "^" + exp + ((target.signum() > 0) ? "" : "+") + target.negate();
     }
-
-    private static String visualize(long[] x) {
-        return x[0] + "^" + x[1] + ((x[2] > 0) ? "" : "+") + (-x[2]);
-    }
-
-
 }

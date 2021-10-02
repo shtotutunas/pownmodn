@@ -13,6 +13,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.apache.commons.math3.primes.Primes.isPrime;
+
 public class RestrictionsTest {
     private final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -25,7 +27,8 @@ public class RestrictionsTest {
             int p = (int) primes.get(i);
             for (int base = 2; base < p; base++) {
                 for (int target = -p+1; target < p; target++) {
-                    Assertions.assertArrayEquals(calculateRestrictionSimple(base, p, target), Restrictions.calculateRestriction(base, p, target),
+                    Assertions.assertArrayEquals(calculateRestrictionSimple(base, p, target),
+                            Restrictions.calculateRestriction(base, p, target),
                             "base=" + base + ", p=" + p + ", target=" + target);
                 }
             }
@@ -73,24 +76,26 @@ public class RestrictionsTest {
 
             for (long i = 2; i <= nLimit; i++) {
                 for (long j = 2; i*j <= nLimit; j++) {
-                    for (long t = -Math.min(i, j)+1; t < Math.min(i, j); t++) {
-                        Long Ai = A.get(i).get(t);
-                        Long Bi = B.get(i).get(t);
-                        Long Aj = A.get(j).get(t);
-                        Long Bj = B.get(j).get(t);
-                        Long Aij = A.get(i*j).get(t);
-                        Long Bij = B.get(i*j).get(t);
-                        if ((Ai != null) && (Bi != null) && (Aj != null) && (Bj != null)) {
-                            BigInteger[] AB = Restrictions.merge(base, t, i, Ai, Bi, j, Aj, Bj);
-                            String msg = "base=" + base + ", target=" + t + ", C=" + i + ", A=" + Ai + ", B=" + Bi
-                                    + ", p=" + j + ", a=" + Aj + ", b=" + Bi
-                                    + ": expected A=" + Aij + ", B=" + Bij
-                                    + "; actual=" + Arrays.toString(AB);
-                            if (AB == null) {
-                                Assertions.assertNull(AB, msg);
-                            } else {
-                                Assertions.assertEquals(BigInteger.valueOf(Aij), AB[0], msg);
-                                Assertions.assertEquals(BigInteger.valueOf(Bij), AB[1], msg);
+                    if (isPrime((int) j)) {
+                        for (long t = -Math.min(i, j)+1; t < Math.min(i, j); t++) {
+                            Long Ai = A.get(i).get(t);
+                            Long Bi = B.get(i).get(t);
+                            Long Aj = A.get(j).get(t);
+                            Long Bj = B.get(j).get(t);
+                            Long Aij = A.get(i*j).get(t);
+                            Long Bij = B.get(i*j).get(t);
+                            if ((Ai != null) && (Bi != null) && (Aj != null) && (Bj != null)) {
+                                BigInteger[] AB = Restrictions.merge(base, t, i, Ai, Bi, j, Aj, Bj);
+                                String msg = "base=" + base + ", target=" + t + ", C=" + i + ", A=" + Ai + ", B=" + Bi
+                                        + ", p=" + j + ", a=" + Aj + ", b=" + Bi
+                                        + ": expected A=" + Aij + ", B=" + Bij
+                                        + "; actual=" + Arrays.toString(AB);
+                                if (AB == null) {
+                                    Assertions.assertNull(AB, msg);
+                                } else {
+                                    Assertions.assertEquals(BigInteger.valueOf(Aij), AB[0], msg);
+                                    Assertions.assertEquals(BigInteger.valueOf(Bij), AB[1], msg);
+                                }
                             }
                         }
                     }

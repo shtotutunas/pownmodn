@@ -26,18 +26,49 @@ public class ModPowCalculator {
             return Common.mod(multiplierBig, mod);
         }
         if (mod.compareTo(Common.MAX_LONG) <= 0) {
-            long _mod = mod.longValueExact();
-            LongBinaryOperator modMultiplier = Modules.modMultiplier(_mod);
-            if (modMultiplier != null) {
-                long baseMod = (baseLong != 0) ? Common.mod(baseLong, _mod) : Common.mod(baseBig, mod).longValueExact();
-                long result = pow(baseMod, exp, modMultiplier);
-                if (multiplierLong != 1) {
-                    result = modMultiplier.applyAsLong(result, Common.mod(multiplierLong, _mod));
-                }
+            long result = tryWithLong(mod.longValueExact(), mod);
+            if (result >= 0) {
                 return BigInteger.valueOf(result);
             }
         }
+        return calculateWithBigInteger(mod);
+    }
 
+    public long calculate(long mod) {
+        if (exp.signum() == 0) {
+            return Common.mod(multiplierLong, mod);
+        }
+        long result = tryWithLong(mod, null);
+        if (result >= 0) {
+            return result;
+        }
+        return calculateWithBigInteger(BigInteger.valueOf(mod)).longValueExact();
+    }
+
+    private long tryWithLong(long mod, BigInteger modBig) {
+        LongBinaryOperator modMultiplier = Modules.modMultiplier(mod);
+        if (modMultiplier == null) {
+            return -1;
+        }
+
+        long baseMod;
+        if (baseLong != 0) {
+            baseMod = Common.mod(baseLong, mod);
+        } else {
+            if (modBig == null) {
+                modBig = BigInteger.valueOf(mod);
+            }
+            baseMod = Common.mod(baseBig, modBig).longValueExact();
+        }
+
+        long result = pow(baseMod, exp, modMultiplier);
+        if (multiplierLong != 1) {
+            result = modMultiplier.applyAsLong(result, Common.mod(multiplierLong, mod));
+        }
+        return result;
+    }
+
+    private BigInteger calculateWithBigInteger(BigInteger mod) {
         if (multiplierLong == 1) {
             return baseBig.modPow(exp, mod);
         } else {
@@ -46,10 +77,7 @@ public class ModPowCalculator {
     }
 
     private static long pow(long b, BigInteger n, LongBinaryOperator modMultiplier) {
-        assert n.signum() >= 0;
-        if (n.signum() == 0) {
-            return modMultiplier.applyAsLong(1, 1);
-        }
+        assert n.signum() > 0;
         int len = n.bitLength();
 
         int p = 0;

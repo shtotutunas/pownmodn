@@ -11,16 +11,16 @@ import java.util.TreeSet;
 public class SolverTest {
 
     @Test
-    public void testSolve() {
+    public void testSolverSimple() {
         int[] bases = new int[] {2, 3, 4, 5, 6};
         int absT = 30;
         int ceil = 5000000;
         for (int base : bases) {
-            testSolve(base, absT, ceil);
+            testSolverSimple(base, absT, ceil);
         }
     }
 
-    public void testSolve(int base, int absT, int ceil) {
+    public void testSolverSimple(int base, int absT, int ceil) {
         Map<Integer, NavigableSet<BigInteger>> solutions = new HashMap<>();
         for (int i = 1; i <= ceil; i++) {
             int r = Modules.pow(base, i, i);
@@ -38,7 +38,7 @@ public class SolverTest {
         for (int t = -absT; t <= absT; t++) {
             Launch launch = Launch.solverSimple(100, 10000L, 100000L, 100, 20);
             Solver solver = new Solver(base, t, BigInteger.valueOf(ceil), launch, null, 4,
-                    100, 10, 1<<23, 4, Long.MAX_VALUE, false);
+                    100, 10, 1<<23, 4, Math.abs(t) <= 15, Long.MAX_VALUE, false);
             solver.solve();
 
             BigInteger T = BigInteger.valueOf(t);

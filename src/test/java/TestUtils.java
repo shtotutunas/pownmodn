@@ -1,8 +1,11 @@
 import common.Modules;
 import org.apache.commons.math3.util.Pair;
 
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
+import java.util.stream.Stream;
 
 public class TestUtils {
     public static Pair<Map<Long, Long>, Map<Long, Long>> generateAB(int base, int n, long absT) {
@@ -32,5 +35,24 @@ public class TestUtils {
             x = (x*bn)%n;
         }
         return Pair.create(A, B);
+    }
+
+    public static BigInteger[] generateTestNumbers(int lowBitLength, int highBitLength, int testsPerBitLength,
+                                                   boolean withZero, Random random)
+    {
+        Stream.Builder<BigInteger> buf = Stream.builder();
+        for (int i = withZero ? 0 : 1; i < (1<<lowBitLength); i++) {
+            buf.add(BigInteger.valueOf(i));
+        }
+        for (int numBits = lowBitLength; numBits <= highBitLength; numBits++) {
+            for (int i = 0; i < testsPerBitLength; i++) {
+                BigInteger r = new BigInteger(numBits, random);
+                while (r.bitLength() != numBits) {
+                    r = new BigInteger(numBits, random);
+                }
+                buf.add(r);
+            }
+        }
+        return buf.build().toArray(BigInteger[]::new);
     }
 }

@@ -8,8 +8,5 @@ It was used for:
 
 Some things that would be good to improve in case if i return to this code (TODO list):
 - add more comments :D
-- make scanner task code faster (e.g. use long instead of BigInteger where it's possible)
-- optimize code that runs in main thread
-- add sieving by quadratic residues, e.g. for 2^n-3 scan only 1, 5, 19, 23 (mod 24) and etc
 - try to make ModPowCalculator faster by using fewer multiplications in exponentiation
 - check if it's possible to generate good primes faster, e.g. if use Index calculus algorithm for discrete logarithm 

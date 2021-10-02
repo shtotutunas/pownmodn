@@ -19,8 +19,7 @@ public class Restrictions {
         assert base > 1;
         base = Common.mod(base, modP.getMod());
         target = Common.mod(target, modP.getMod());
-        long x = base;
-        if (x == 0) {
+        if (base == 0) {
             if (target == 0) {
                 return new long[] {1, 0};
             } else {
@@ -32,7 +31,7 @@ public class Restrictions {
         LongIntMap map = new LongIntHashMap(n);
         boolean cycled = false;
         long xn = 1;
-        modP.setStepMultiplier(x);
+        modP.setStepMultiplier(base);
         for (int i = 1; i <= n; i++) {
             xn = modP.step();
             map.put(xn, i);

@@ -1,4 +1,5 @@
 import common.Modules;
+import org.apache.commons.math3.primes.Primes;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -7,18 +8,40 @@ import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.Random;
 
 class ModulesTest {
     private final Logger log = LoggerFactory.getLogger(getClass());
 
     @Test
+    public void testModInverse() {
+        int lowBitLength = 10;
+        int highBitLength = 25;
+        int testsPerBitLength = 20;
+
+        long startTime = System.currentTimeMillis();
+        BigInteger[] tests = TestUtils.generateTestNumbers(lowBitLength, highBitLength, testsPerBitLength, false, new Random(777));
+        for (BigInteger a : tests) {
+            for (BigInteger b : tests) {
+                if (a.gcd(b).equals(BigInteger.ONE)) {
+                    Assertions.assertEquals(a.modInverse(b), Modules.modInverse(a, b), () -> "a=" + a + ";  b=" + b);
+                }
+            }
+        }
+        log.info("OK - tested for {}x{} number pairs in {}ms", tests.length, tests.length, System.currentTimeMillis() - startTime);
+
+    }
+
+    @Test
     public void testDivideLinearSum() {
         long startTime = System.currentTimeMillis();
         int limit = 100;
-        for (int A = 1; A <= limit; A++) {
-            for (int B = 0; B < A; B++) {
-                for (int p = 1; p <= limit; p++) {
-                    testDivideLinearSum(A, B, p);
+        for (int p = 2; p <= limit; p++) {
+            if (Primes.isPrime(p)) {
+                for (int A = 1; A <= limit; A++) {
+                    for (int B = 0; B < A; B++) {
+                        testDivideLinearSum(A, B, p);
+                    }
                 }
             }
         }
@@ -136,7 +159,7 @@ class ModulesTest {
     private static void testRebalanceDivisors(int a, int b) {
         BigInteger A = BigInteger.valueOf(a);
         BigInteger B = BigInteger.valueOf(b);
-        BigInteger[] ab = Modules.rebalanceDivisors(A, B);
+        BigInteger[] ab = Modules.rebalanceDivisors(A, B, A.gcd(B));
         String msg = "A=" + a + ", B=" + b + ": a=" + ab[0] + ", b=" + ab[1];
         Assertions.assertEquals(BigInteger.ZERO, A.mod(ab[0]), msg);
         Assertions.assertEquals(BigInteger.ZERO, B.mod(ab[1]), msg);

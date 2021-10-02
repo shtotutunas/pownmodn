@@ -5,20 +5,66 @@ import java.util.function.LongBinaryOperator;
 
 public class Modules {
 
-    public static int pow(int b, int n, int mod) {
+    public static int pow(long b, long n, int mod) {
         assert n >= 0;
         assert mod > 0;
+        if (mod == 1) {
+            return 0;
+        }
+        if (n == 0) {
+            return 1;
+        }
 
-        long res = 1;
-        long t = b;
-        while (n > 0) {
-            if ((n&1) == 1) {
-                res = (res*t)%mod;
-            }
+        long t = Common.mod(b, mod);
+        while ((n&1) == 0) {
             t = (t*t)%mod;
             n >>= 1;
         }
-        return (int) (res%mod);
+
+        long res = t;
+        n >>= 1;
+        while (n > 0) {
+            t = (t*t)%mod;
+            if ((n&1) == 1) {
+                res = (res*t)%mod;
+            }
+            n >>= 1;
+        }
+        return (int) res;
+    }
+
+    public static BigInteger modInverse(BigInteger a, BigInteger n) {
+        assert a.signum() > 0;
+        assert n.signum() > 0;
+
+        if (n.compareTo(Common.MAX_LONG) <= 0) {
+            return BigInteger.valueOf(modInverse(Common.mod(a, n).longValueExact(), n.longValueExact()));
+        } else {
+            return a.modInverse(n);
+        }
+    }
+
+    public static long modInverse(long a, long n) {
+        long[] xy = new long[2];
+        long gcd = gcdExt(a, n, xy);
+        if (gcd != 1) {
+            throw new IllegalArgumentException("Cannot invert " + a + " mod " + n);
+        }
+        return Common.mod(xy[0], n);
+    }
+
+    private static long gcdExt(long a, long b, long[] xy) {
+        if (a == 0) {
+            xy[0] = 0;
+            xy[1] = 1;
+            return b;
+        }
+        long d = gcdExt(b%a, a, xy);
+        long x = xy[1] - (b / a) * xy[0];
+        long y = xy[0];
+        xy[0] = x;
+        xy[1] = y;
+        return d;
     }
 
     public static LongBinaryOperator modMultiplier(long mod) {
@@ -77,20 +123,12 @@ public class Modules {
 
     // returns such {a, b} that Ax+B = p(ay+b)
     // in other words, if X%A == B and X%p == 0 then X%ap == bp
+    // P should be prime
     public static BigInteger[] divideLinearSum(BigInteger A, BigInteger B, BigInteger P) {
         assert A.signum() > 0;
         assert B.signum() >= 0;
         assert P.signum() > 0;
-
-        BigInteger gcd = A.gcd(P);
-        if (gcd.compareTo(BigInteger.ONE) > 0) {
-            if (B.divideAndRemainder(gcd)[1].signum() != 0) {
-                return null;
-            }
-            A = A.divide(gcd);
-            B = B.divide(gcd);
-            P = P.divide(gcd);
-        }
+        assert P.isProbablePrime(10);
 
         BigInteger[] adr = A.divideAndRemainder(P);
         BigInteger[] bdr = B.divideAndRemainder(P);
@@ -102,8 +140,15 @@ public class Modules {
             }
         }
 
+        BigInteger A_inv;
+        if (P.compareTo(Common.MAX_INT) <= 0) {
+            int p = P.intValueExact();
+            A_inv = BigInteger.valueOf(Modules.pow(adr[1].intValueExact(), p-2, p));
+        } else {
+            A_inv = adr[1].modPow(P.subtract(BigInteger.TWO), P);
+        }
+
         BigInteger pb = (bdr[1].signum() == 0) ? BigInteger.ZERO : P.subtract(bdr[1]);
-        BigInteger A_inv = adr[1].modInverse(P);
         BigInteger C = pb.multiply(A_inv).mod(P);
         return new BigInteger[] {A, A.multiply(C).add(B).divide(P)};
     }
@@ -123,18 +168,18 @@ public class Modules {
             return new BigInteger[] {A0, B0};
         }
 
-        BigInteger gcd = A0.gcd(A1);
+        BigInteger gcd = Common.gcd(A0, A1);
         if (!B0.mod(gcd).equals(B1.mod(gcd))) {
             return null;
         }
-        BigInteger[] r = rebalanceDivisors(A0, A1);
+        BigInteger[] r = rebalanceDivisors(A0, A1, gcd);
 
         BigInteger a0 = r[0];
-        BigInteger b0 = a0.equals(A0) ? B0 : B0.remainder(A0);
+        BigInteger b0 = a0.equals(A0) ? B0 : B0.remainder(a0);
         BigInteger a1 = r[1];
-        BigInteger b1 = a1.equals(A1) ? B1 : B1.remainder(A1);
+        BigInteger b1 = a1.equals(A1) ? B1 : B1.remainder(a1);
 
-        BigInteger x = b1.subtract(b0).multiply(a0.modInverse(a1)).mod(a1);
+        BigInteger x = b1.subtract(b0).multiply(Modules.modInverse(a0, a1)).mod(a1);
         BigInteger A = a0.multiply(a1);
         BigInteger B = x.multiply(a0).add(b0);
         return new BigInteger[] {A, B};
@@ -145,23 +190,22 @@ public class Modules {
     // 2) gcd(a, b) = 1
     // 3) A%a = 0
     // 4) B%b = 0
-    public static BigInteger[] rebalanceDivisors(BigInteger A, BigInteger B) {
+    public static BigInteger[] rebalanceDivisors(BigInteger A, BigInteger B, BigInteger gcd) {
         assert A.signum() > 0;
         assert B.signum() > 0;
-        BigInteger gcd = A.gcd(B);
         if (gcd.equals(BigInteger.ONE)) {
             return new BigInteger[] {A, B};
         }
 
-        BigInteger gcdA = A.gcd(gcd.multiply(gcd));
+        BigInteger gcdA = Common.gcd(A, gcd.multiply(gcd));
         BigInteger prev = BigInteger.ONE;
         BigInteger next = gcdA.divide(gcd);
         while (!prev.equals(next)) {
             prev = next;
-            next = A.gcd(prev.multiply(prev));
+            next = Common.gcd(A, prev.multiply(prev));
         }
 
-        BigInteger Bs = gcd.gcd(next);
+        BigInteger Bs = Common.gcd(gcd, next);
         BigInteger As = gcd.divide(Bs);
         return new BigInteger[] {A.divide(As), B.divide(Bs)};
     }

@@ -7,10 +7,14 @@ import org.slf4j.LoggerFactory;
 import primes.Primes;
 
 import java.math.BigInteger;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NavigableSet;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 public abstract class Launch {
     private static final Logger log = LoggerFactory.getLogger(Launch.class);
@@ -51,7 +55,8 @@ public abstract class Launch {
     public static Launch factorizationsGenerator(int maxBitLength, Long pm1FirstBound, Long pm1SecondBound,
                                                  long rhoIterations, int primeTestCertainty, int threadsNumber)
     {
-        TreeMap<BigInteger, long[]> toFactor = new TreeMap<>();
+        Map<BigInteger, BigInteger> numToExp = new HashMap<>();
+        Map<BigInteger, Long> expToCand = new HashMap<>();
         return new Launch() {
             @Override
             public Factorizer getFactorizer(Primes primes) {
@@ -62,21 +67,26 @@ public abstract class Launch {
                 return bitLength <= maxBitLength;
             }
             @Override
-            public void registerFactorizationCall(BigInteger N, long base, int power, long target, long A) {
-                toFactor.put(N, new long[] {base, power, target, A});
+            public void registerFactorizationCall(BigInteger N, BigInteger base, BigInteger exp, BigInteger target, BigInteger A) {
+                numToExp.put(N, exp);
+            }
+            @Override
+            public boolean checkCandidates() {
+                return true;
+            }
+            @Override
+            public void registerScan(BigInteger N, long candidates) {
+                expToCand.put(N, candidates);
             }
 
             @Override
-            public long scanLength(BigInteger scanLength) {
-                return 0;
-            }
-
-            @Override
-            public void summarize() {
+            public void summarize(Solver solver) {
                 Primes primes = new Primes(Common.max(0L, pm1FirstBound, pm1SecondBound));
                 PollardPm1 pollardPm1 = (pm1FirstBound != null) ? new PollardPm1(primes, pm1FirstBound, pm1SecondBound) : null;
                 Factorizer factorizer = new Factorizer(pollardPm1, primeTestCertainty, 2, rhoIterations);
-                FactorizationDB.logFactorizations(toFactor, factorizer, threadsNumber);
+                SortedMap<BigInteger, Long> scanTime = numToExp.entrySet().stream().collect(Collectors.toMap(Map.Entry::getValue,
+                        e -> expToCand.getOrDefault(e.getValue(), 0L), (x, y) -> x, TreeMap::new));
+                FactorizationDB.logFactorizations(solver.getBase(), solver.getTarget(), scanTime, factorizer, threadsNumber);
             }
         };
     }
@@ -103,7 +113,7 @@ public abstract class Launch {
 
             @Override
             public long scanLength(BigInteger scanLength) {
-                return scanLength.compareTo(maxScanLengthBI) <= 0 ? scanLength.longValueExact() : 0;
+                return scanLength.compareTo(maxScanLengthBI) <= 0 ? scanLength.longValueExact() : maxScanLength;
             }
         };
     }
@@ -126,13 +136,19 @@ public abstract class Launch {
         return scanLength.longValueExact();
     }
 
+    public boolean checkCandidates() {
+        return true;
+    }
+
     public void addSolution(BigInteger solution) {
         solutions.add(solution);
     }
 
-    public void registerFactorizationCall(BigInteger N, long base, int power, long target, long A) {}
+    public void registerFactorizationCall(BigInteger N, BigInteger base, BigInteger exp, BigInteger target, BigInteger A) {}
 
-    public void summarize() {
+    public void registerScan(BigInteger N, long candidates) {}
+
+    public void summarize(Solver solver) {
         log.info("Found {} solutions: {}", solutions.size(), solutions);
     }
 

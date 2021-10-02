@@ -37,7 +37,7 @@ public class PollardPm1 {
         this.M = generateM();
         long bitLength = Arrays.stream(M).mapToLong(BigInteger::bitLength).sum();
         log.info("Pollard P-1 initialized in {}ms, sum of bit lengths {} ({}MB)", System.currentTimeMillis() - startTime, bitLength,
-                String.format("%.2f", bitLength / ((double) (1<<23))));
+                String.format(Common.LOCALE, "%.2f", bitLength / ((double) (1<<23))));
     }
 
     public BigInteger findDivisor(BigInteger N, int tries) {
