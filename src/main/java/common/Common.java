@@ -24,6 +24,10 @@ public class Common {
             .comparing(BigInteger::bitLength)
             .thenComparing(x -> x);
 
+    public static BigInteger e(int m, int e) {
+        return BigInteger.TEN.pow(e).multiply(BigInteger.valueOf(m));
+    }
+
     public static long mod(long n, long mod) {
         assert mod > 0;
         n %= mod;

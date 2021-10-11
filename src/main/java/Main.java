@@ -1,3 +1,4 @@
+import common.Common;
 import factorization.FactorizationDB;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -7,11 +8,11 @@ import java.math.BigInteger;
 public class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
-    static final long base = 3;
-    static final long target = 2;
-    static final BigInteger solutionCeil = BigInteger.TEN.pow(16).multiply(BigInteger.TWO);
+    static final long base = 2;
+    static final long target = -11;
+    static final BigInteger solutionCeil = Common.e(1, 17);
 
-    static final int threadsNumber = 2;
+    static final int threadsNumber = 4;
     static final int primeTestCertainty = 50;
     static final Boolean QRSievePrecalculated = true;
 
@@ -19,11 +20,11 @@ public class Main {
     //static final Launch launch = Launch.factorizationsGenerator(5000, (long) 1e6, (long) 1e7, (long) 1e6, primeTestCertainty, threadsNumber);
     //static final Launch launch = Launch.fastScan(5000000, 2000000);
 
-    static final long scanLogThreshold = 10000000;
+    static final long scanLogThreshold = 20000000;
     static final boolean logSolutions = true;
-    static final int maxLengthPerTask = 1<<23;
-    static final int minParallelLength = 4;
-    static final int sieveBound = 2000;
+    static final int maxLengthPerTask = 1<<24;
+    static final int minParallelLength = 10;
+    static final int sieveBound = 20000;
     static final int sieveLengthFactor = 10;
 
     public static void main(String[] args) {

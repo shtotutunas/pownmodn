@@ -81,7 +81,7 @@ public class Solver {
         if (target == base) {
             scan(BigInteger.ONE, BigInteger.ONE, BigInteger.ONE, solutionCeil.longValueExact(), 0);
         } else {
-            scan(BigInteger.ONE, BigInteger.ONE, BigInteger.ONE, Math.max(base, base-target), 0);
+            scan(BigInteger.ONE, BigInteger.ONE, BigInteger.ONE, base, 0);
         }
 
         pognali(0, 0, BigInteger.ONE, BigInteger.ONE, BigInteger.ZERO);
