@@ -71,8 +71,8 @@ public class QuadraticResidueSieve {
             if (cycle == null) {
                 return null;
             }
-            int needLongs = ((length-1)>>6) + 1;
-            return BitSet.valueOf(Common.repeatToLength(cycle, needLongs));
+            int needBytes = ((length-1)>>3) + 1;
+            return BitSet.valueOf(Common.repeatToLength(cycle, needBytes));
         } else {
             return generateBitSet(a, b, length, residue);
         }
