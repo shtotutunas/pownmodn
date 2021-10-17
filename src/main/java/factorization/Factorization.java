@@ -1,91 +1,92 @@
 package factorization;
 
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
-import java.util.NavigableMap;
+import java.util.Objects;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.function.BiFunction;
+import java.util.function.BinaryOperator;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 public class Factorization {
-    private final NavigableMap<BigInteger, Integer> factors;
+    private final BigInteger[] factors;
+    private final Set<BigInteger> composites;
 
-    private Factorization(NavigableMap<BigInteger, Integer> factors) {
-        this.factors = Collections.unmodifiableNavigableMap(factors);
+    private Factorization(BigInteger[] factors, Set<BigInteger> composites) {
+        this.factors = factors;
+        this.composites = composites;
     }
 
     public static Factorization fromSingleFactor(BigInteger factor, boolean isPrime) {
-        NavigableMap<BigInteger, Integer> factors = new TreeMap<>();
-        factors.put(factor, isPrime ? 1 : -1);
-        return new Factorization(factors);
+        return new Factorization(new BigInteger[] {factor}, isPrime ? Set.of() : Set.of(factor));
     }
 
     public static Factorization fromPrimeFactors(Collection<BigInteger> primeFactors) {
-        NavigableMap<BigInteger, Integer> factors = new TreeMap<>();
-        var func = remappingFunction(1);
-        primeFactors.forEach(f -> factors.compute(f, func));
-        return new Factorization(factors);
+        return new Factorization(primeFactors.stream().sorted().toArray(BigInteger[]::new), Set.of());
     }
 
     public static Factorization multiply(Factorization a, Factorization b) {
-        NavigableMap<BigInteger, Integer> factors = new TreeMap<>(a.factors);
-        b.factors.forEach((p, n) -> factors.compute(p, remappingFunction(n)));
-        return new Factorization(factors);
-    }
-
-    private static BiFunction<BigInteger, Integer, Integer> remappingFunction(int power) {
-        return (p, prev) -> {
-            if (prev == null) {
-                return power;
-            } else if (Math.signum(prev) == Math.signum(power)) {
-                return prev + power;
-            } else {
-                return Math.abs(prev) + Math.abs(power);
-            }
-        };
+        return new Factorization(Stream.concat(Arrays.stream(a.factors), Arrays.stream(b.factors)).sorted().toArray(BigInteger[]::new),
+                Stream.concat(a.composites.stream(), b.composites.stream()).collect(Collectors.toUnmodifiableSet()));
     }
 
     public void forEachDivisor(Consumer<BigInteger> consumer) {
-        forEachDivisor(BigInteger.ONE, BigInteger.ONE, consumer);
-    }
-
-    private void forEachDivisor(BigInteger d, BigInteger prev, Consumer<BigInteger> consumer) {
-        Map.Entry<BigInteger, Integer> entry = factors.higherEntry(prev);
-        if (entry == null) {
-            consumer.accept(d);
-            return;
-        }
-        forEachDivisor(d, entry.getKey(), consumer);
-        for (int i = 1; i <= Math.abs(entry.getValue()); i++) {
-            d = d.multiply(entry.getKey());
-            forEachDivisor(d, entry.getKey(), consumer);
-        }
+        forEachDivisor(factors, consumer);
     }
 
     public int compositeCount() {
-        return (int) factors.values().stream().filter(x -> x < 0).count();
+        return composites.size();
     }
 
     public Set<BigInteger> composites() {
-        return factors.entrySet().stream().filter(e -> e.getValue() < 0).map(Map.Entry::getKey).collect(Collectors.toUnmodifiableSet());
+        return composites;
+    }
+
+    public static long[] generateDivisors(long[] primeFactorsSorted) {
+        LongStream.Builder buf = LongStream.builder();
+        forEachDivisor(Arrays.stream(primeFactorsSorted).boxed().toArray(Long[]::new), 1L, Math::multiplyExact, buf::add);
+        return buf.build().sorted().toArray();
+    }
+
+    public static void forEachDivisor(BigInteger[] primeFactorsSorted, Consumer<BigInteger> consumer) {
+        forEachDivisor(primeFactorsSorted, BigInteger.ONE, BigInteger::multiply, consumer);
+    }
+
+    private static <T> void forEachDivisor(T[] primeFactors, T one, BinaryOperator<T> multiplier, Consumer<T> consumer) {
+        forEachDivisor(primeFactors, 0, one, multiplier, consumer);
+    }
+
+    private static <T> void forEachDivisor(T[] f, int pos, T cur, BinaryOperator<T> multiplier, Consumer<T> consumer) {
+        if (pos >= f.length) {
+            consumer.accept(cur);
+            return;
+        }
+        int end = pos+1;
+        while ((end < f.length) && Objects.equals(f[pos], f[end])) {
+            end++;
+        }
+        forEachDivisor(f, end, cur, multiplier, consumer);
+        for (int i = pos; i < end; i++) {
+            cur = multiplier.apply(cur, f[pos]);
+            forEachDivisor(f, end, cur, multiplier, consumer);
+        }
     }
 
     @Override
     public String toString() {
-       StringBuilder buf = new StringBuilder();
-       factors.forEach((p, n) -> {
-           if (buf.length() > 0) {
-               buf.append(" * ");
-           }
-           buf.append(p);
-           for (int i = 2; i <= Math.abs(n); i++) {
-               buf.append(" * ").append(p);
-           }
-       });
-       return buf.toString();
+        if (factors.length == 0) {
+            return "1";
+        }
+        StringBuilder buf = new StringBuilder();
+        for (int i = 0; i < factors.length; i++) {
+            if (i > 0) {
+                buf.append(" * ");
+            }
+            buf.append(factors[i]);
+        }
+        return buf.toString();
     }
 }

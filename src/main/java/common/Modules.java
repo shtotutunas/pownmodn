@@ -5,7 +5,7 @@ import java.util.function.LongBinaryOperator;
 
 public class Modules {
 
-    public static int pow(long b, long n, int mod) {
+    public static long pow(long b, long n, long mod) {
         assert n >= 0;
         assert mod > 0;
         if (mod == 1) {
@@ -15,22 +15,27 @@ public class Modules {
             return 1;
         }
 
+        LongBinaryOperator multiplier = modMultiplier(mod);
+        if (multiplier == null) {
+            return BigInteger.valueOf(b).modPow(BigInteger.valueOf(n), BigInteger.valueOf(mod)).longValueExact();
+        }
+
         long t = Common.mod(b, mod);
         while ((n&1) == 0) {
-            t = (t*t)%mod;
+            t = multiplier.applyAsLong(t, t);
             n >>= 1;
         }
 
         long res = t;
         n >>= 1;
         while (n > 0) {
-            t = (t*t)%mod;
+            t = multiplier.applyAsLong(t, t);
             if ((n&1) == 1) {
-                res = (res*t)%mod;
+                res = multiplier.applyAsLong(res, t);
             }
             n >>= 1;
         }
-        return (int) res;
+        return res;
     }
 
     public static BigInteger modInverse(BigInteger a, BigInteger n) {
@@ -60,7 +65,7 @@ public class Modules {
             return b;
         }
         long d = gcdExt(b%a, a, xy);
-        long x = xy[1] - (b / a) * xy[0];
+        long x = xy[1] - (b/a)*xy[0];
         long y = xy[0];
         xy[0] = x;
         xy[1] = y;
@@ -141,9 +146,9 @@ public class Modules {
         }
 
         BigInteger A_inv;
-        if (P.compareTo(Common.MAX_INT) <= 0) {
-            int p = P.intValueExact();
-            A_inv = BigInteger.valueOf(Modules.pow(adr[1].intValueExact(), p-2, p));
+        if (P.compareTo(Common.MAX_LONG) <= 0) {
+            long p = P.longValueExact();
+            A_inv = BigInteger.valueOf(Modules.pow(adr[1].longValueExact(), p-2, p));
         } else {
             A_inv = adr[1].modPow(P.subtract(BigInteger.TWO), P);
         }
@@ -208,5 +213,20 @@ public class Modules {
         BigInteger Bs = Common.gcd(gcd, next);
         BigInteger As = gcd.divide(Bs);
         return new BigInteger[] {A.divide(As), B.divide(Bs)};
+    }
+
+    public static long restoreByCRT(long[] p, long[] r) {
+        long result = 0;
+        long mult = 1;
+        long[] x = new long[p.length];
+        for (int i = 0; i < p.length; i++) {
+            x[i] = r[i];
+            for (int j = 0; j < i; j++) {
+                x[i] = Common.mod(modInverse(p[j], p[i]) * (x[i] - x[j]), p[i]);
+            }
+            result += x[i]*mult;
+            mult *= p[i];
+        }
+        return result;
     }
 }

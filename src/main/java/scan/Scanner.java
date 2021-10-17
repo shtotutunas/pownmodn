@@ -43,11 +43,10 @@ public class Scanner {
     private final QuadraticResidueSieve evenQRSieve;
     private final QuadraticResidueSieve oddQRSieve;
     private final ModPowCalculatorFactory modPowCalculatorFactory;
-    private final long scanLogThreshold;
 
     public Scanner(BigInteger base, long target, int sieveBound, int sieveLengthFactor, Primes primes,
                    ExecutorService executor, int threadsNumber, int maxLengthPerTask, int minParallelLength,
-                   Boolean QRSievePrecalculated, ModPowCalculatorFactory modPowCalculatorFactory, long scanLogThreshold)
+                   Boolean QRSievePrecalculated, ModPowCalculatorFactory modPowCalculatorFactory)
     {
         assert base.compareTo(BigInteger.TWO) >= 0;
         assert sieveBound >= 0;
@@ -68,7 +67,7 @@ public class Scanner {
             primesBuf.add(p);
             int[] inv = new int[p];
             for (int j = 1; j < p; j++) {
-                inv[j] = Modules.pow(j, p-2, p);
+                inv[j] = (int) Modules.pow(j, p-2, p);
             }
             invBuf.add(inv);
         }
@@ -97,7 +96,6 @@ public class Scanner {
         }
 
         this.modPowCalculatorFactory = modPowCalculatorFactory;
-        this.scanLogThreshold = scanLogThreshold;
     }
 
     public Pair<BigInteger[], Long> scan(BigInteger C, BigInteger A, BigInteger B, long length, boolean checkCandidates) {
@@ -316,12 +314,6 @@ public class Scanner {
             }
 
             resultConsumer.accept((result != null) ? result.build().toArray(BigInteger[]::new) : null, counter);
-
-            if (length >= scanLogThreshold) {
-                long taskStart = start.divide(step).longValueExact();
-                long taskEnd = taskStart + length;
-                log.info("Scanned for interval [{}, {}), checked {} candidates", taskStart, taskEnd, counter);
-            }
         }
     }
 }

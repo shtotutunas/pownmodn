@@ -2,6 +2,7 @@ package common;
 
 import org.apache.commons.math3.util.ArithmeticUtils;
 
+import java.lang.reflect.Array;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -49,16 +50,27 @@ public class Common {
         }
     }
 
-    public static long[] repeatToLength(long[] cycle, int length) {
+    public static byte[] repeatToLength(byte[] cycle, int length) {
         assert cycle.length > 0;
-        long[] result = Arrays.copyOf(cycle, length);
-        int copied = cycle.length;
-        while (copied < length) {
-            int add = Math.min(copied, result.length-copied);
-            System.arraycopy(result, 0, result, copied, add);
-            copied += add;
-        }
+        byte[] result = Arrays.copyOf(cycle, length);
+        repeatFirstTerms(result, cycle.length);
         return result;
+    }
+
+    public static boolean[] repeatToLength(boolean[] cycle, int length) {
+        assert cycle.length > 0;
+        boolean[] result = Arrays.copyOf(cycle, length);
+        repeatFirstTerms(result, cycle.length);
+        return result;
+    }
+
+    private static void repeatFirstTerms(Object array, int cycleLength) {
+        int length = Array.getLength(array);
+        while (cycleLength < length) {
+            int add = Math.min(cycleLength, length-cycleLength);
+            System.arraycopy(array, 0, array, cycleLength, add);
+            cycleLength += add;
+        }
     }
 
     public static BigInteger multiply(BigInteger... numbers) {

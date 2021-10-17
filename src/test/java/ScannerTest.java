@@ -19,7 +19,7 @@ public class ScannerTest {
     private void testScan(int base, long target, BigInteger N, long C, long A, long length, long speedUp) {
         Scanner scanner = new Scanner(BigInteger.valueOf(base), target, 100, 1, new Primes(100),
                 null, 1, 1<<23, 1, null,
-                new ModPowCalculatorFactory(BigInteger.valueOf(base)), 1);
+                new ModPowCalculatorFactory(BigInteger.valueOf(base)));
 
         A = Math.multiplyExact(A, speedUp);
         long B = N.divide(BigInteger.valueOf(C)).mod(BigInteger.valueOf(A)).longValueExact();

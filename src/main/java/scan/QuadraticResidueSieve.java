@@ -15,7 +15,7 @@ import java.util.List;
 public class QuadraticResidueSieve {
 
     private final boolean[] residue;
-    private final long[][][] precalculatedBuffers;
+    private final byte[][][] precalculatedBuffers;
     private final BigInteger M;
 
     public static QuadraticResidueSieve create(int n, boolean withPrecalculatedBuffers, boolean nullIfUseless) {
@@ -26,10 +26,15 @@ public class QuadraticResidueSieve {
         }
 
         int m = Math.abs(StrictMath.multiplyExact(4, n));
+        boolean[] coprime = new boolean[m];
+        for (int i = 0; i < m; i++) {
+            coprime[i] = (ArithmeticUtils.gcd(i, m) == 1);
+        }
+
         boolean[] residue = new boolean[m];
         boolean useless = true;
         for (int i = 1; i < m; i++) {
-            if (ArithmeticUtils.gcd(i, m) == 1) {
+            if (coprime[i]) {
                 int p = findPrime(i, m);
                 if (isResidue(n, p)) {
                     residue[i] = true;
@@ -41,6 +46,20 @@ public class QuadraticResidueSieve {
         if (useless && nullIfUseless) {
             return null;
         }
+
+        for (int d = 2; d < m; d++) {
+            if (m%d == 0) {
+                boolean[] b = Common.repeatToLength(Arrays.copyOf(residue, d), m);
+                for (int i = 0; i < m; i++) {
+                    b[i] &= coprime[i];
+                }
+                if (Arrays.equals(b, residue)) {
+                    residue = Arrays.copyOf(residue, d);
+                    break;
+                }
+            }
+        }
+
         return new QuadraticResidueSieve(residue, withPrecalculatedBuffers ? generatePrecalculatedBuffers(residue) : null);
     }
 
@@ -48,7 +67,7 @@ public class QuadraticResidueSieve {
         int a = (start.compareTo(Common.MAX_LONG) <= 0) ? (int) (start.longValueExact()%residue.length) : start.mod(M).intValueExact();
         int b = (step.compareTo(Common.MAX_LONG) <= 0) ? (int) (step.longValueExact()%residue.length) : step.mod(M).intValueExact();
         if (precalculatedBuffers != null) {
-            long[] cycle = precalculatedBuffers[a][b];
+            byte[] cycle = precalculatedBuffers[a][b];
             if (cycle == null) {
                 return null;
             }
@@ -106,7 +125,7 @@ public class QuadraticResidueSieve {
         return residues + "/" + residue.length + " = " + String.format(Common.LOCALE, "%.3f", residues * 1.0 / residue.length);
     }
 
-    private QuadraticResidueSieve(boolean[] residue, long[][][] precalculatedBuffers) {
+    private QuadraticResidueSieve(boolean[] residue, byte[][][] precalculatedBuffers) {
         this.residue = residue;
         this.precalculatedBuffers = precalculatedBuffers;
         this.M = BigInteger.valueOf(residue.length);
@@ -130,12 +149,12 @@ public class QuadraticResidueSieve {
         return false;
     }
 
-    private static long[][][] generatePrecalculatedBuffers(boolean[] residue) {
+    private static byte[][][] generatePrecalculatedBuffers(boolean[] residue) {
         int m = residue.length;
-        LongObjectMap<List<long[]>> cache = new LongObjectHashMap<>();
-        int longLength = m/ArithmeticUtils.gcd(m, 64);
-        int bitLength = StrictMath.multiplyExact(longLength, 64);
-        long[][][] buf = new long[m][m][];
+        LongObjectMap<List<byte[]>> cache = new LongObjectHashMap<>();
+        int byteLength = m/ArithmeticUtils.gcd(m, 8);
+        int bitLength = StrictMath.multiplyExact(byteLength, 8);
+        byte[][][] buf = new byte[m][m][];
         for (int a = 0; a < m; a++) {
             for (int b = 0; b < m; b++) {
                 BitSet bitSet = generateBitSet(a, b, bitLength, residue);
@@ -144,9 +163,9 @@ public class QuadraticResidueSieve {
                     empty = bitSet.get(i);
                 }
                 if (!empty) {
-                    long[] array = bitSet.toLongArray();
-                    if (array.length != longLength) {
-                        array = Arrays.copyOf(array, longLength);
+                    byte[] array = bitSet.toByteArray();
+                    if (array.length != byteLength) {
+                        array = Arrays.copyOf(array, byteLength);
                     }
                     buf[a][b] = intern(array, cache);
                 }
@@ -155,13 +174,13 @@ public class QuadraticResidueSieve {
         return buf;
     }
 
-    private static long[] intern(long[] a, LongObjectMap<List<long[]>> cache) {
-        List<long[]> list = cache.get(a[0]);
+    private static byte[] intern(byte[] a, LongObjectMap<List<byte[]>> cache) {
+        List<byte[]> list = cache.get(a[0]);
         if (list == null) {
             list = new ArrayList<>();
             cache.put(a[0], list);
         }
-        for (long[] b : list) {
+        for (byte[] b : list) {
             if (Arrays.equals(a, b)) {
                 return b;
             }
@@ -169,5 +188,4 @@ public class QuadraticResidueSieve {
         list.add(a);
         return a;
     }
-
 }

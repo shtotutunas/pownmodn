@@ -11,5 +11,4 @@ It was used for:
 Some things that would be good to improve in case if i return to this code (TODO list):
 - add more comments :D
 - try to make ModPowCalculator faster, e.g. by using Math.multiplyHigh() for bigger set of numbers and by using fewer multiplications in exponentiation
-- generate good primes faster - check orders divisibility and use Pohlig–Hellman algorithm for discrete logarithm
 - add factorizer implementation that would use external GMP-ECM executable file

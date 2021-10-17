@@ -4,6 +4,9 @@ import com.carrotsearch.hppc.LongHashSet;
 import com.carrotsearch.hppc.LongLongHashMap;
 import com.carrotsearch.hppc.LongLongMap;
 import com.carrotsearch.hppc.LongSet;
+import common.Common;
+import common.Modules;
+import factorization.Factorization;
 import org.apache.commons.math3.util.ArithmeticUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,7 +89,7 @@ public class GoodPrimes {
             if (p > limit) {
                 break;
             }
-            long[] r = Restrictions.calculateRestriction(base, p, target);
+            long[] r = calculateRestriction(Common.mod(base, p), p, Common.mod(target, p), primes);
             if (r != null) {
                 gp.add(p);
                 a.add(r[0]);
@@ -95,6 +98,72 @@ public class GoodPrimes {
             }
         }
         return new long[][] {gp.build().toArray(), a.build().toArray(), b.build().toArray(), gcdAB.build().toArray()};
+    }
+
+    private static long[] calculateRestriction(long a, long p, long b, Primes primes) {
+        assert (a >= 0) && (a < p);
+        assert (b >= 0) && (b < p);
+        if (p < 10) {
+            return Restrictions.calculateRestriction(a, p, b);
+        }
+
+        long[] pf = primes.factorize(p-1);
+        long[] divisors = Factorization.generateDivisors(pf);
+        long orderA = findOrder(a, p, divisors);
+        long orderB = findOrder(b, p, divisors);
+        if (orderA%orderB != 0) {
+            return null;
+        }
+
+        LongStream.Builder w = LongStream.builder();
+        LongStream.Builder r = LongStream.builder();
+        int i = 0;
+        while (i < pf.length) {
+            long q = pf[i];
+            while ((i+1 < pf.length) && (pf[i+1] == pf[i])) {
+                q *= pf[i];
+                i++;
+            }
+            i++;
+
+            long dq = (p-1)/q;
+            long A = Modules.pow(a, dq, p);
+            long B = Modules.pow(b, dq, p);
+            long[] x = Restrictions.calculateRestriction(A, p, B, q);
+            if (x == null) {
+                return null;
+            }
+            w.add(q);
+            r.add(x[1]);
+        }
+
+        return new long[] {orderA, Modules.restoreByCRT(w.build().toArray(), r.build().toArray())%orderA};
+    }
+
+    private static long findOrder(long a, long p, long[] divisors) {
+        assert divisors[0] == 1;
+        assert divisors[divisors.length-1] == p-1;
+        if (a < 2) {
+            return 1;
+        }
+
+        long[] pows = new long[divisors.length];
+        for (int i = 1; i+1 < divisors.length; i++) {
+            long d = divisors[i];
+            long b = a;
+            for (int j = i-1; j > 1; j--) {
+                if (divisors[i]%divisors[j] == 0) {
+                    d = divisors[i]/divisors[j];
+                    b = pows[j];
+                    break;
+                }
+            }
+            pows[i] = Modules.pow(b, d, p);
+            if (pows[i] == 1) {
+                return divisors[i];
+            }
+        }
+        return p-1;
     }
 
     private static long[][] mergeResults(long[][][] results, BigInteger base, BigInteger target, Primes primes) {

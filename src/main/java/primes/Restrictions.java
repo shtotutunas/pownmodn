@@ -12,22 +12,25 @@ import java.util.function.BinaryOperator;
 public class Restrictions {
 
     public static long[] calculateRestriction(long base, long p, long target) {
-        return calculateRestriction(base, LongMod.create(p), target);
+        return calculateRestriction(base, p, target, p-1);
     }
 
-    private static long[] calculateRestriction(long base, LongMod modP, long target) {
-        assert base > 1;
+    public static long[] calculateRestriction(long base, long p, long target, long cycleSize) {
+        return calculateRestriction(base, LongMod.create(p), target, cycleSize);
+    }
+
+    private static long[] calculateRestriction(long base, LongMod modP, long target, long cycleSize) {
         base = Common.mod(base, modP.getMod());
         target = Common.mod(target, modP.getMod());
-        if (base == 0) {
-            if (target == 0) {
+        if ((base == 0) || (base == 1)) {
+            if (target == base) {
                 return new long[] {1, 0};
             } else {
                 return null;
             }
         }
 
-        int n = StrictMath.toIntExact((long) Math.sqrt(modP.getMod()));
+        int n = StrictMath.toIntExact((long) Math.sqrt(cycleSize));
         LongIntMap map = new LongIntHashMap(n);
         boolean cycled = false;
         long xn = 1;
@@ -69,6 +72,9 @@ public class Restrictions {
             if (t > 0) {
                 len = nk - t;
                 break;
+            }
+            if (nk > cycleSize + n) {
+                return null;
             }
         }
 

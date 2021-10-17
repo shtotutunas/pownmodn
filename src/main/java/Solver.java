@@ -1,3 +1,5 @@
+import com.carrotsearch.hppc.IntHashSet;
+import com.carrotsearch.hppc.IntSet;
 import common.Common;
 import common.Modules;
 import factorization.Factorization;
@@ -15,6 +17,7 @@ import scan.Scanner;
 import java.math.BigInteger;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.IntStream;
 
 public class Solver {
     private static final Logger log = LoggerFactory.getLogger(Solver.class);
@@ -68,7 +71,7 @@ public class Solver {
 
         this.modPowCalculatorFactory = new ModPowCalculatorFactory(baseBig);
         this.scanner = new Scanner(baseBig, target, sieveBound, sieveLengthFactor, primes, executor, threadsNumber,
-                maxLengthPerTask, minParallelLength, QRSievePrecalculated, modPowCalculatorFactory, scanLogThreshold);
+                maxLengthPerTask, minParallelLength, QRSievePrecalculated, modPowCalculatorFactory);
         this.scanLogThreshold = scanLogThreshold;
         this.logSolutions = logSolutions;
 
@@ -84,10 +87,10 @@ public class Solver {
             scan(BigInteger.ONE, BigInteger.ONE, BigInteger.ONE, base, 0);
         }
 
-        pognali(0, 0, BigInteger.ONE, BigInteger.ONE, BigInteger.ZERO);
+        pognali(0, 0, BigInteger.ONE, BigInteger.ONE, BigInteger.ZERO, new IntHashSet());
     }
 
-    private void pognali(int pos, int gpPos, BigInteger C, BigInteger A, BigInteger B) {
+    private void pognali(int pos, int gpPos, BigInteger C, BigInteger A, BigInteger B, IntSet incompatibles) {
         BigInteger div = solutionCeil.divide(C);
         BigInteger am = div.subtract(B);
         if (am.signum() < 0) {
@@ -101,26 +104,52 @@ public class Solver {
         }
 
         long bound = div.sqrt().longValueExact();
-        for (int i = gpPos; (i < goodPrimes.size()) && (goodPrimes.get(i) <= bound); i++) {
-            if (pos == 0) {
-                long gcd = goodPrimes.getGcdAB(i);
-                if (gcd > 1) {
-                    continue;
-                }
-            }
+        if ((goodPrimes.size() == 0) || (bound < goodPrimes.get(gpPos))) {
+            return;
+        }
 
-            BigInteger P = BigInteger.valueOf(goodPrimes.get(i));
-            BigInteger[] newAB = Restrictions.merge(baseBig, targetBig, C, A, B,
-                    P, BigInteger.valueOf(goodPrimes.getA(i)), BigInteger.valueOf(goodPrimes.getB(i)),
-                    this::baseModPow);
-
-            if (newAB != null) {
-                BigInteger gcd = Common.gcd(newAB[0], newAB[1]);
-                if (gcd.compareTo(BigInteger.ONE) > 0) {
+        if (pos == 0) {
+            for (int i = gpPos; (i < goodPrimes.size()) && (goodPrimes.get(i) <= bound); i++) {
+                if (goodPrimes.getGcdAB(i) > 1) {
                     continue;
                 }
                 primeStack[pos] = goodPrimes.get(i);
-                pognali(pos+1, i, C.multiply(P), newAB[0], newAB[1]);
+                pognali(pos+1, i, C.multiply(BigInteger.valueOf(goodPrimes.get(i))),
+                        BigInteger.valueOf(goodPrimes.getA(i)), BigInteger.valueOf(goodPrimes.getB(i)), incompatibles);
+
+            }
+        } else {
+            int pBound = gpPos;
+            while ((pBound < goodPrimes.size()) && (goodPrimes.get(pBound) <= bound)) {
+                pBound++;
+            }
+
+            IntStream.Builder toClearBuf = IntStream.builder();
+            for (int i = pBound-1; i >= gpPos; i--) {
+                if (incompatibles.contains(i)) {
+                    continue;
+                }
+                BigInteger P = BigInteger.valueOf(goodPrimes.get(i));
+                BigInteger[] newAB = Restrictions.merge(baseBig, targetBig, C, A, B,
+                        P, BigInteger.valueOf(goodPrimes.getA(i)), BigInteger.valueOf(goodPrimes.getB(i)),
+                        this::baseModPow);
+
+                if (newAB != null) {
+                    BigInteger gcd = Common.gcd(newAB[0], newAB[1]);
+                    if (gcd.compareTo(BigInteger.ONE) > 0) {
+                        continue;
+                    }
+                    primeStack[pos] = goodPrimes.get(i);
+                    pognali(pos+1, i, C.multiply(P), newAB[0], newAB[1], incompatibles);
+                } else {
+                    incompatibles.add(i);
+                    toClearBuf.add(i);
+                }
+            }
+
+            int[] toClear = toClearBuf.build().toArray();
+            for (int i : toClear) {
+                incompatibles.removeAll(i);
             }
         }
     }
@@ -218,8 +247,8 @@ public class Solver {
     }
 
     private BigInteger baseModPow(BigInteger exp, BigInteger mod) {
-        if (exp.compareTo(Common.MAX_LONG) <= 0 && mod.compareTo(Common.MAX_INT) <= 0) {
-            return BigInteger.valueOf(Modules.pow(base, exp.longValueExact(), mod.intValueExact()));
+        if (exp.compareTo(Common.MAX_LONG) <= 0 && mod.compareTo(Common.MAX_LONG) <= 0) {
+            return BigInteger.valueOf(Modules.pow(base, exp.longValueExact(), mod.longValueExact()));
         } else {
             return modPowCalculatorFactory.createCalculator(exp).calculate(mod);
         }

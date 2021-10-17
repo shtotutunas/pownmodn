@@ -23,7 +23,7 @@ public class SolverTest {
     public void testSolverSimple(int base, int absT, int ceil) {
         Map<Integer, NavigableSet<BigInteger>> solutions = new HashMap<>();
         for (int i = 1; i <= ceil; i++) {
-            int r = Modules.pow(base, i, i);
+            int r = (int) Modules.pow(base, i, i);
             while (r <= absT) {
                 solutions.computeIfAbsent(r, x -> new TreeSet<>()).add(BigInteger.valueOf(i));
                 r += i;
