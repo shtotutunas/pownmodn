@@ -21,7 +21,7 @@ public class ModPowCalculatorTest {
         int testsPerBitLength = 15;
 
         long startTime = System.currentTimeMillis();
-        BigInteger[] tests = TestUtils.generateTestNumbers(lowBitLength, highBitLength, testsPerBitLength, true, new Random(777));
+        BigInteger[] tests = TestUtils.generateTestNumbers(lowBitLength, highBitLength, testsPerBitLength, true, true, new Random(777));
         for (BigInteger base : bases) {
             ModPowCalculatorFactory factory = new ModPowCalculatorFactory(base);
             for (BigInteger exp : tests) {

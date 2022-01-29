@@ -1,5 +1,5 @@
 import common.Common;
-import common.Modules;
+import common.ModUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -45,7 +45,7 @@ public class RestrictionsTest {
 
     private static long[] calculateRestrictionSimple(int base, int p, int target) {
         target = (int) Common.mod(target, p);
-        long x = Modules.pow(base, p, p);
+        long x = ModUtils.pow(base, p, p);
         long t = x;
         int pos = -1;
         for (int i = 1; i <= p; i++) {

@@ -1,4 +1,4 @@
-import common.Modules;
+import common.ModUtils;
 import org.apache.commons.math3.primes.Primes;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -10,7 +10,7 @@ import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Random;
 
-class ModulesTest {
+class ModUtilsTest {
     private final Logger log = LoggerFactory.getLogger(getClass());
 
     @Test
@@ -20,11 +20,11 @@ class ModulesTest {
         int testsPerBitLength = 20;
 
         long startTime = System.currentTimeMillis();
-        BigInteger[] tests = TestUtils.generateTestNumbers(lowBitLength, highBitLength, testsPerBitLength, false, new Random(777));
+        BigInteger[] tests = TestUtils.generateTestNumbers(lowBitLength, highBitLength, testsPerBitLength, true, false, new Random(777));
         for (BigInteger a : tests) {
             for (BigInteger b : tests) {
                 if (a.gcd(b).equals(BigInteger.ONE)) {
-                    Assertions.assertEquals(a.modInverse(b), Modules.modInverse(a, b), () -> "a=" + a + ";  b=" + b);
+                    Assertions.assertEquals(a.modInverse(b), ModUtils.modInverse(a, b), () -> "a=" + a + ";  b=" + b);
                 }
             }
         }
@@ -77,7 +77,7 @@ class ModulesTest {
     }
 
     private static void testDivideLinearSum(int A, int B, int p) {
-        BigInteger[] ab = Modules.divideLinearSum(BigInteger.valueOf(A), BigInteger.valueOf(B), BigInteger.valueOf(p));
+        BigInteger[] ab = ModUtils.divideLinearSum(BigInteger.valueOf(A), BigInteger.valueOf(B), BigInteger.valueOf(p));
         if (ab == null) {
             for (long x = 0; x <= p; x++) {
                 if ((A*x + B) % p == 0) {
@@ -105,8 +105,8 @@ class ModulesTest {
     }
 
     private static void testMerge(int a0, int b0, int a1, int b1) {
-        BigInteger[] res1 = Modules.merge(BigInteger.valueOf(a0), BigInteger.valueOf(b0), BigInteger.valueOf(a1), BigInteger.valueOf(b1));
-        BigInteger[] res2 = Modules.merge(BigInteger.valueOf(a1), BigInteger.valueOf(b1), BigInteger.valueOf(a0), BigInteger.valueOf(b0));
+        BigInteger[] res1 = ModUtils.merge(BigInteger.valueOf(a0), BigInteger.valueOf(b0), BigInteger.valueOf(a1), BigInteger.valueOf(b1));
+        BigInteger[] res2 = ModUtils.merge(BigInteger.valueOf(a1), BigInteger.valueOf(b1), BigInteger.valueOf(a0), BigInteger.valueOf(b0));
         if (!Arrays.equals(res1 ,res2)) {
             throw new IllegalStateException("a0=" + a0 + ", b0=" + b0 + ", a1=" + a1 + ", b1=" + b1);
         }
@@ -159,12 +159,72 @@ class ModulesTest {
     private static void testRebalanceDivisors(int a, int b) {
         BigInteger A = BigInteger.valueOf(a);
         BigInteger B = BigInteger.valueOf(b);
-        BigInteger[] ab = Modules.rebalanceDivisors(A, B, A.gcd(B));
+        BigInteger[] ab = ModUtils.rebalanceDivisors(A, B, A.gcd(B));
         String msg = "A=" + a + ", B=" + b + ": a=" + ab[0] + ", b=" + ab[1];
         Assertions.assertEquals(BigInteger.ZERO, A.mod(ab[0]), msg);
         Assertions.assertEquals(BigInteger.ZERO, B.mod(ab[1]), msg);
         Assertions.assertEquals(BigInteger.ONE, ab[0].gcd(ab[1]), msg);
         Assertions.assertEquals(A.multiply(B).divide(A.gcd(B)), ab[0].multiply(ab[1]), msg);
+    }
+
+    @Test
+    @Disabled
+    public void testModPowTimings() {
+        int bitLength = 52;
+        int numCnt = 100;
+        testModPowTimings(bitLength, numCnt, false); // warmup
+        testModPowTimings(bitLength, numCnt, true);
+    }
+
+    private void testModPowTimings(int bitLength, int numCnt, boolean logTimings) {
+        BigInteger[] A = TestUtils.generateTestNumbers(bitLength, bitLength, numCnt, false, false, new Random(777));
+        long[] a = Arrays.stream(A).mapToLong(BigInteger::longValueExact).toArray();
+
+        BigInteger[][][] R = new BigInteger[numCnt][numCnt][numCnt];
+        long[][][] r = new long[numCnt][numCnt][numCnt];
+        long startTime;
+        long runTime;
+        long total = (long) numCnt * numCnt * (numCnt-1);
+
+        startTime = System.currentTimeMillis();
+        for (int i = 0; i < numCnt; i++) {
+            for (int j = 0; j < numCnt; j++) {
+                for (int k = 0; k < numCnt; k++) {
+                    if (i != k) {
+                        r[i][j][k] = ModUtils.pow(a[i], a[j], a[k]);
+                    }
+                }
+            }
+        }
+        runTime = System.currentTimeMillis() - startTime;
+        if (logTimings) {
+            log.info("Long implementation: {}ms --- {}ns per operation", runTime, String.format("%.2f", runTime * 1e6 / total));
+        }
+
+        startTime = System.currentTimeMillis();
+        for (int i = 0; i < numCnt; i++) {
+            for (int j = 0; j < numCnt; j++) {
+                for (int k = 0; k < numCnt; k++) {
+                    if (i != k) {
+                        R[i][j][k] = A[i].modPow(A[j], A[k]);
+                    }
+                }
+            }
+        }
+        runTime = System.currentTimeMillis() - startTime;
+        if (logTimings) {
+            log.info("BigInteger implementation: {}ms --- {}ns per operation", runTime, String.format("%.2f", runTime * 1e6 / total));
+        }
+
+        for (int i = 0; i < numCnt; i++) {
+            for (int j = 0; j < numCnt; j++) {
+                for (int k = 0; k < numCnt; k++) {
+                    if (i != k) {
+                        Assertions.assertEquals(R[i][j][k].longValueExact(), r[i][j][k]);
+                    }
+                }
+            }
+        }
     }
 
 }

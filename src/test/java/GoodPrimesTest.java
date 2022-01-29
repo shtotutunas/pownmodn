@@ -1,3 +1,4 @@
+import common.TaskExecutor;
 import org.apache.commons.math3.util.ArithmeticUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -9,8 +10,6 @@ import primes.Primes;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static org.apache.commons.math3.primes.Primes.isPrime;
 
@@ -24,7 +23,7 @@ public class GoodPrimesTest {
         int tLimit = 15;
         int pLimit = 3000;
         int threads = 4;
-        ExecutorService executor = (threads > 1) ? Executors.newFixedThreadPool(threads) : null;
+        TaskExecutor executor = TaskExecutor.create(threads);
         Primes primes = new Primes(pLimit);
 
         for (int base = 2; base <= bLimit; base++) {
@@ -37,7 +36,7 @@ public class GoodPrimesTest {
             }
 
             for (long t = -tLimit; t <= tLimit; t++) {
-                GoodPrimes gp = GoodPrimes.generate(pLimit, base, t, primes, executor, threads);
+                GoodPrimes gp = GoodPrimes.generate(pLimit, base, t, primes, executor);
                 Map<Long, Long> a = new LinkedHashMap<>();
                 Map<Long, Long> b = new LinkedHashMap<>();
                 for (int i = 0; i < gp.size(); i++) {

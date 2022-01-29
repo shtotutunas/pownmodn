@@ -24,8 +24,8 @@ public abstract class Launch {
     {
         return new Launch() {
             @Override
-            public long getPrimesBound(BigInteger solutionCeil) {
-                return Common.max(super.getPrimesBound(solutionCeil), pm1FirstBound, pm1SecondBound);
+            public long getPrimesBound() {
+                return Common.max(pm1FirstBound, pm1SecondBound, super.getPrimesBound());
             }
             @Override
             public boolean tryFactorize(int bitLength) {
@@ -59,6 +59,10 @@ public abstract class Launch {
         Map<BigInteger, Long> expToCand = new HashMap<>();
         return new Launch() {
             @Override
+            public long getPrimesBound() {
+                return Common.max(pm1FirstBound, pm1SecondBound, super.getPrimesBound());
+            }
+            @Override
             public Factorizer getFactorizer(Primes primes) {
                 return new Factorizer(null, primeTestCertainty, 0, 0);
             }
@@ -80,8 +84,7 @@ public abstract class Launch {
             }
 
             @Override
-            public void summarize(Solver solver) {
-                Primes primes = new Primes(Common.max(0L, pm1FirstBound, pm1SecondBound));
+            public void summarize(Solver solver, Primes primes) {
                 PollardPm1 pollardPm1 = (pm1FirstBound != null) ? new PollardPm1(primes, pm1FirstBound, pm1SecondBound) : null;
                 Factorizer factorizer = new Factorizer(pollardPm1, primeTestCertainty, 2, rhoIterations);
                 SortedMap<BigInteger, Long> scanTime = numToExp.entrySet().stream().collect(Collectors.toMap(Map.Entry::getValue,
@@ -95,12 +98,8 @@ public abstract class Launch {
         BigInteger maxScanLengthBI = BigInteger.valueOf(maxScanLength);
         return new Launch() {
             @Override
-            public long getPrimesBound(BigInteger solutionCeil) {
-                return Math.min(goodPrimeBound, super.getPrimesBound(solutionCeil));
-            }
-            @Override
             public long getGoodPrimesBound(BigInteger solutionCeil) {
-                return Math.min(goodPrimeBound, super.getPrimesBound(solutionCeil));
+                return Math.min(goodPrimeBound, super.getGoodPrimesBound(solutionCeil));
             }
             @Override
             public boolean tryFactorize(int bitLength) {
@@ -120,8 +119,8 @@ public abstract class Launch {
 
     private final NavigableSet<BigInteger> solutions = new TreeSet<>();
 
-    public long getPrimesBound(BigInteger solutionCeil) {
-        return solutionCeil.sqrt().longValueExact();
+    public long getPrimesBound() {
+        return 0;
     }
 
     public long getGoodPrimesBound(BigInteger solutionCeil) {
@@ -148,7 +147,7 @@ public abstract class Launch {
 
     public void registerScan(BigInteger N, long candidates) {}
 
-    public void summarize(Solver solver) {
+    public void summarize(Solver solver, Primes primes) {
         log.info("Found {} solutions: {}", solutions.size(), solutions);
     }
 

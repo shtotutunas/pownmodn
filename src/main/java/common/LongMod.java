@@ -12,7 +12,7 @@ public interface LongMod {
 
     static LongMod create(long mod) {
         assert mod > 0;
-        LongBinaryOperator modMultiplier = Modules.modMultiplier(mod);
+        LongBinaryOperator modMultiplier = ModUtils.modMultiplier(mod);
         if (modMultiplier != null) {
             return new LongBased(mod, modMultiplier);
         } else {

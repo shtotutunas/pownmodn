@@ -2,8 +2,9 @@ package common;
 
 import java.math.BigInteger;
 import java.util.function.LongBinaryOperator;
+import java.util.function.LongUnaryOperator;
 
-public class Modules {
+public class ModUtils {
 
     public static long pow(long b, long n, long mod) {
         assert n >= 0;
@@ -34,6 +35,41 @@ public class Modules {
                 res = multiplier.applyAsLong(res, t);
             }
             n >>= 1;
+        }
+        return res;
+    }
+
+    public static long pow(long b, BigInteger n, long mod) {
+        assert n.signum() >= 0;
+        assert mod > 0;
+        if (mod == 1) {
+            return 0;
+        }
+        if (n.signum() == 0) {
+            return 1;
+        }
+
+        LongBinaryOperator multiplier = modMultiplier(mod);
+        if (multiplier == null) {
+            return BigInteger.valueOf(b).modPow(n, BigInteger.valueOf(mod)).longValueExact();
+        }
+
+        int pos = 0;
+        long t = Common.mod(b, mod);
+        while (!n.testBit(pos)) {
+            t = multiplier.applyAsLong(t, t);
+            pos++;
+        }
+
+        long res = t;
+        int bitLength = n.bitLength();
+        pos++;
+        while (pos < bitLength) {
+            t = multiplier.applyAsLong(t, t);
+            if (n.testBit(pos)) {
+                res = multiplier.applyAsLong(res, t);
+            }
+            pos++;
         }
         return res;
     }
@@ -73,54 +109,82 @@ public class Modules {
     }
 
     public static LongBinaryOperator modMultiplier(long mod) {
+        assert mod > 0;
+
         if (mod == 1) {
             return (a, b) -> 0;
-        }
-        if (mod <= Common.MAX_LONG_SQRT) {
-            return modMultiplier32bit(mod);
+        } else if (mod <= Common.MAX_LONG_SQRT) {
+            return (a, b) -> {
+                assert a >= 0;
+                assert a < mod;
+                assert b >= 0;
+                assert b < mod;
+                return (a*b)%mod;
+            };
+        } else if (mod < (1L<<42)) {
+            long r64 = (((1L<<62)%mod)<<2)%mod;
+            return modMultiplier(mod, r64, h -> h*r64);
+        } else if (mod < (1L<<47)) {
+            long r64 = (((1L<<62)%mod)<<2)%mod;
+            long r79 = (r64<<15)%mod;
+            long mask = (1L<<15)-1;
+            return modMultiplier(mod, r64, h -> {
+                long h0 = (h & mask);
+                long h1 = (h >> 15);
+                return (h0*r64) + (h1*r79);
+            });
+        } else if (mod < (1L<<50)) {
+            long r64 = (((1L<<62)%mod)<<2)%mod;
+            long r76 = (r64<<12)%mod;
+            long r88 = (r76<<12)%mod;
+            long mask = (1L<<12)-1;
+            return modMultiplier(mod, r64, h -> {
+                long h0 = (h & mask);
+                long h1 = (h >> 12) & mask;
+                long h2 = (h >> 24);
+                return (h0*r64) + (h1*r76) + (h2*r88);
+            });
+        } else if (mod < (1L<<52)) {
+            long r64 = (((1L<<62)%mod)<<2)%mod;
+            long r74 = (r64<<10)%mod;
+            long r84 = (r74<<10)%mod;
+            long r94 = (r84<<10)%mod;
+            long mask = (1L<<10)-1;
+            return modMultiplier(mod, r64, h -> {
+                long h0 = (h & mask);
+                long h1 = (h >> 10) & mask;
+                long h2 = (h >> 20) & mask;
+                long h3 = (h >> 30);
+                return (h0*r64) + (h1*r74) + (h2*r84) + (h3*r94);
+            });
         } else {
-            return modMultiplier42bit(mod);
-        }
-    }
-
-    private static LongBinaryOperator modMultiplier32bit(long mod) {
-        assert mod > 0;
-        assert mod <= Common.MAX_LONG_SQRT;
-
-        return (a, b) -> {
-            assert a >= 0;
-            assert a < mod;
-            assert b >= 0;
-            assert b < mod;
-            return (a*b)%mod;
-        };
-    }
-
-    private static LongBinaryOperator modMultiplier42bit(long mod) {
-        assert mod > 0;
-        if (mod >= (1L<<62)) {
             return null;
         }
+    }
 
-        long r64 = ((Long.MAX_VALUE % mod + 1) << 1) % mod;
-        if (mod > (1L<<42)) {
-            long maxR = mod-1;
-            long maxH = Math.multiplyHigh(maxR, maxR);
-            if ((maxH > 0) && ((Long.MAX_VALUE - maxR) / maxH < r64)) {
-                return null;
-            }
-        }
-
+    private static LongBinaryOperator modMultiplier(long mod, long r64, LongUnaryOperator H) {
         return (a, b) -> {
             assert a >= 0;
             assert a < mod;
             assert b >= 0;
             assert b < mod;
-            long high = Math.multiplyHigh(a, b);
             long low = a*b;
-            long res = (high*r64) + (low%mod);
+            long high = H.applyAsLong(Math.multiplyHigh(a, b));
+
+            int c = 0;
             if (low < 0) {
-                res += r64;
+                c++;
+            }
+            if (high < 0) {
+                c++;
+            }
+            c += Common.addHigh(low, high);
+            long res = low + high;
+            while (c != 0) {
+                long add = c * r64;
+                int t = Common.addHigh(res, add);
+                res += add;
+                c = t;
             }
             return Common.mod(res, mod);
         };
@@ -148,7 +212,7 @@ public class Modules {
         BigInteger A_inv;
         if (P.compareTo(Common.MAX_LONG) <= 0) {
             long p = P.longValueExact();
-            A_inv = BigInteger.valueOf(Modules.pow(adr[1].longValueExact(), p-2, p));
+            A_inv = BigInteger.valueOf(ModUtils.pow(adr[1].longValueExact(), p-2, p));
         } else {
             A_inv = adr[1].modPow(P.subtract(BigInteger.TWO), P);
         }
@@ -184,7 +248,7 @@ public class Modules {
         BigInteger a1 = r[1];
         BigInteger b1 = a1.equals(A1) ? B1 : B1.remainder(a1);
 
-        BigInteger x = b1.subtract(b0).multiply(Modules.modInverse(a0, a1)).mod(a1);
+        BigInteger x = b1.subtract(b0).multiply(ModUtils.modInverse(a0, a1)).mod(a1);
         BigInteger A = a0.multiply(a1);
         BigInteger B = x.multiply(a0).add(b0);
         return new BigInteger[] {A, B};

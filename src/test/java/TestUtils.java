@@ -1,4 +1,4 @@
-import common.Modules;
+import common.ModUtils;
 import org.apache.commons.math3.util.Pair;
 
 import java.math.BigInteger;
@@ -12,7 +12,7 @@ public class TestUtils {
         Map<Long, Long> A = new HashMap<>();
         Map<Long, Long> B = new HashMap<>();
         long x = 1;
-        long bn = Modules.pow(base, n, n);
+        long bn = ModUtils.pow(base, n, n);
         for (long e = 0; e <= 2*n; e++) {
             for (long y = x; y <= absT; y+=n) {
                 Long b = B.get(y);
@@ -38,11 +38,13 @@ public class TestUtils {
     }
 
     public static BigInteger[] generateTestNumbers(int lowBitLength, int highBitLength, int testsPerBitLength,
-                                                   boolean withZero, Random random)
+                                                   boolean addAllSmaller, boolean withZero, Random random)
     {
         Stream.Builder<BigInteger> buf = Stream.builder();
-        for (int i = withZero ? 0 : 1; i < (1<<lowBitLength); i++) {
-            buf.add(BigInteger.valueOf(i));
+        if (addAllSmaller) {
+            for (int i = withZero ? 0 : 1; i < (1<<lowBitLength); i++) {
+                buf.add(BigInteger.valueOf(i));
+            }
         }
         for (int numBits = lowBitLength; numBits <= highBitLength; numBits++) {
             for (int i = 0; i < testsPerBitLength; i++) {

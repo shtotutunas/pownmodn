@@ -1,7 +1,6 @@
 import com.carrotsearch.hppc.IntHashSet;
 import com.carrotsearch.hppc.IntSet;
 import common.Common;
-import common.Modules;
 import factorization.Factorization;
 import factorization.FactorizationDB;
 import factorization.Factorizer;
@@ -9,14 +8,10 @@ import org.apache.commons.math3.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import primes.GoodPrimes;
-import primes.Primes;
 import primes.Restrictions;
-import scan.ModPowCalculatorFactory;
 import scan.Scanner;
 
 import java.math.BigInteger;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.stream.IntStream;
 
 public class Solver {
@@ -30,14 +25,11 @@ public class Solver {
 
     private final BigInteger solutionCeil;
 
-    private final Primes primes;
     private final GoodPrimes goodPrimes;
 
-    private final ExecutorService executor;
     private final FactorizationDB factorizationDB;
     private final Factorizer factorizer;
 
-    private final ModPowCalculatorFactory modPowCalculatorFactory;
     private final Scanner scanner;
     private final long scanLogThreshold;
     private final boolean logSolutions;
@@ -45,9 +37,9 @@ public class Solver {
     private final Launch launch;
     private final long[] primeStack;
 
-    public Solver(long base, long target, BigInteger solutionCeil, Launch launch, FactorizationDB factorizationDB, int threadsNumber,
-                  int sieveBound, int sieveLengthFactor, int maxLengthPerTask, int minParallelLength,
-                  Boolean QRSievePrecalculated, long scanLogThreshold, boolean logSolutions)
+    public Solver(long base, long target, BigInteger solutionCeil, Launch launch, GoodPrimes goodPrimes,
+                  FactorizationDB factorizationDB, Factorizer factorizer, Scanner scanner,
+                  long scanLogThreshold, boolean logSolutions)
     {
         assert base >= 2;
         this.base = base;
@@ -57,21 +49,10 @@ public class Solver {
         this.log2Base = Math.log(base) / Math.log(2);
         this.solutionCeil = solutionCeil;
 
-        long primesBound = launch.getPrimesBound(solutionCeil);
-        long startTime = System.currentTimeMillis();
-        log.info("Start generating primes up to {}...", primesBound);
-        this.primes = new Primes(launch.getPrimesBound(solutionCeil));
-        log.info("{} primes found in {}ms", primes.size(), System.currentTimeMillis() - startTime);
-
-        this.executor = (threadsNumber > 1) ? Executors.newScheduledThreadPool(threadsNumber) : null;
-        this.goodPrimes = GoodPrimes.generate(launch.getGoodPrimesBound(solutionCeil), base, target, primes, executor, threadsNumber);
-
+        this.goodPrimes = goodPrimes;
         this.factorizationDB = factorizationDB;
-        this.factorizer = launch.getFactorizer(primes);
-
-        this.modPowCalculatorFactory = new ModPowCalculatorFactory(baseBig);
-        this.scanner = new Scanner(baseBig, target, sieveBound, sieveLengthFactor, primes, executor, threadsNumber,
-                maxLengthPerTask, minParallelLength, QRSievePrecalculated, modPowCalculatorFactory);
+        this.factorizer = factorizer;
+        this.scanner = scanner;
         this.scanLogThreshold = scanLogThreshold;
         this.logSolutions = logSolutions;
 
@@ -131,8 +112,7 @@ public class Solver {
                 }
                 BigInteger P = BigInteger.valueOf(goodPrimes.get(i));
                 BigInteger[] newAB = Restrictions.merge(baseBig, targetBig, C, A, B,
-                        P, BigInteger.valueOf(goodPrimes.getA(i)), BigInteger.valueOf(goodPrimes.getB(i)),
-                        this::baseModPow);
+                        P, BigInteger.valueOf(goodPrimes.getA(i)), BigInteger.valueOf(goodPrimes.getB(i)));
 
                 if (newAB != null) {
                     BigInteger gcd = Common.gcd(newAB[0], newAB[1]);
@@ -246,14 +226,6 @@ public class Solver {
         return buf.toString();
     }
 
-    private BigInteger baseModPow(BigInteger exp, BigInteger mod) {
-        if (exp.compareTo(Common.MAX_LONG) <= 0 && mod.compareTo(Common.MAX_LONG) <= 0) {
-            return BigInteger.valueOf(Modules.pow(base, exp.longValueExact(), mod.longValueExact()));
-        } else {
-            return modPowCalculatorFactory.createCalculator(exp).calculate(mod);
-        }
-    }
-
     public BigInteger getBase() {
         return baseBig;
     }
@@ -262,9 +234,4 @@ public class Solver {
         return targetBig;
     }
 
-    public void shutdown() {
-        if (executor != null) {
-            executor.shutdownNow();
-        }
-    }
 }

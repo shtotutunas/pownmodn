@@ -1,7 +1,8 @@
+import common.TaskExecutor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import primes.Primes;
-import scan.ModPowCalculatorFactory;
+import scan.ScanSieve;
 import scan.Scanner;
 
 import java.math.BigInteger;
@@ -17,9 +18,9 @@ public class ScannerTest {
     }
 
     private void testScan(int base, long target, BigInteger N, long C, long A, long length, long speedUp) {
-        Scanner scanner = new Scanner(BigInteger.valueOf(base), target, 100, 1, new Primes(100),
-                null, 1, 1<<23, 1, null,
-                new ModPowCalculatorFactory(BigInteger.valueOf(base)));
+        ScanSieve scanSieve = new ScanSieve(BigInteger.valueOf(base), BigInteger.valueOf(target), new Primes(100), null);
+        Scanner scanner = new Scanner(BigInteger.valueOf(base), target, scanSieve,
+                TaskExecutor.create(1), 1<<23, 1);
 
         A = Math.multiplyExact(A, speedUp);
         long B = N.divide(BigInteger.valueOf(C)).mod(BigInteger.valueOf(A)).longValueExact();

@@ -4,10 +4,9 @@ import com.carrotsearch.hppc.LongIntHashMap;
 import com.carrotsearch.hppc.LongIntMap;
 import common.Common;
 import common.LongMod;
-import common.Modules;
+import common.ModUtils;
 
 import java.math.BigInteger;
-import java.util.function.BinaryOperator;
 
 public class Restrictions {
 
@@ -97,20 +96,12 @@ public class Restrictions {
                                      BigInteger C, BigInteger A, BigInteger B,
                                      BigInteger p, BigInteger a, BigInteger b)
     {
-        return merge(base, targetRemainder, C, A, B, p, a, b, base::modPow);
-    }
-
-    public static BigInteger[] merge(BigInteger base, BigInteger targetRemainder,
-                                     BigInteger C, BigInteger A, BigInteger B,
-                                     BigInteger p, BigInteger a, BigInteger b,
-                                     BinaryOperator<BigInteger> baseModPow)
-    {
         assert base.compareTo(BigInteger.ONE) > 0;
-        BigInteger[] withP = Modules.divideLinearSum(A, B, p);
+        BigInteger[] withP = ModUtils.divideLinearSum(A, B, p);
         if (withP == null) {
             return null;
         }
-        BigInteger[] newAB = Modules.merge(withP[0].multiply(C), withP[1].multiply(C), a, b);
+        BigInteger[] newAB = ModUtils.merge(withP[0].multiply(C), withP[1].multiply(C), a, b);
         if (newAB == null) {
             return null;
         }
@@ -118,7 +109,16 @@ public class Restrictions {
         B = newAB[1].divide(C);
         BigInteger N = C.multiply(p);
 
-        if (baseModPow.apply(B.add(A).multiply(N), N).equals(Common.mod(targetRemainder, N))) {
+        boolean checkPassed;
+        BigInteger exp = B.add(A).multiply(N);
+        if (N.compareTo(Common.MAX_LONG) <= 0) {
+            long n = N.longValueExact();
+            checkPassed = ModUtils.pow(Common.mod(base, N).longValueExact(), exp, n) == Common.mod(targetRemainder, N).longValueExact();
+        } else {
+            checkPassed =  base.modPow(exp, N).equals(Common.mod(targetRemainder, N));
+        }
+
+        if (checkPassed) {
             return new BigInteger[] {A, B};
         } else {
             return null;

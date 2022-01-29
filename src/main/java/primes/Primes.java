@@ -2,6 +2,7 @@ package primes;
 
 import com.carrotsearch.hppc.BitSet;
 
+import java.util.Arrays;
 import java.util.stream.LongStream;
 
 public class Primes {
@@ -46,6 +47,11 @@ public class Primes {
 
     public int size() {
         return primes.length;
+    }
+
+    public int floorIdx(long n) {
+        int idx = Arrays.binarySearch(primes, n);
+        return (idx >= 0) ? idx : -(idx+1) - 1;
     }
 
     public long[] factorize(long n) {

@@ -102,4 +102,14 @@ public class Common {
     public static Long max(Long... a) {
         return Stream.of(a).filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
     }
+
+    public static int addHigh(long x, long y) {
+        long r = x + y;
+        // see java.lang.Math.addExact(long x, long y)
+        if (((x ^ r) & (y ^ r)) < 0) {
+            return Long.signum(x);
+        } else {
+            return 0;
+        }
+    }
 }

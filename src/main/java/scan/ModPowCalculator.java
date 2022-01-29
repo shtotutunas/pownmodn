@@ -1,7 +1,7 @@
 package scan;
 
 import common.Common;
-import common.Modules;
+import common.ModUtils;
 
 import java.math.BigInteger;
 import java.util.function.LongBinaryOperator;
@@ -46,7 +46,7 @@ public class ModPowCalculator {
     }
 
     private long tryWithLong(long mod, BigInteger modBig) {
-        LongBinaryOperator modMultiplier = Modules.modMultiplier(mod);
+        LongBinaryOperator modMultiplier = ModUtils.modMultiplier(mod);
         if (modMultiplier == null) {
             return -1;
         }

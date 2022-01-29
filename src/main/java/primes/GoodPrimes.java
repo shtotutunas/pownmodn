@@ -5,14 +5,14 @@ import com.carrotsearch.hppc.LongLongHashMap;
 import com.carrotsearch.hppc.LongLongMap;
 import com.carrotsearch.hppc.LongSet;
 import common.Common;
-import common.Modules;
+import common.ModUtils;
+import common.TaskExecutor;
 import factorization.Factorization;
 import org.apache.commons.math3.util.ArithmeticUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.stream.LongStream;
 
@@ -51,26 +51,23 @@ public class GoodPrimes {
         return goodPrimes.length;
     }
 
-    public static GoodPrimes generate(long limit, long base, long target, Primes primes, ExecutorService executor, int threadsNumber) {
+    public static GoodPrimes generate(long limit, long base, long target, Primes primes, TaskExecutor executor) {
         long startTime = System.currentTimeMillis();
         log.info("Start generating good primes up to {}...", limit);
+        int threadsNumber = executor.getThreadsNumber();
         long[][][] result;
-        if (executor == null) {
-            result = new long[][][] { generate(limit, base, target, 0, 1, primes) };
-        } else {
-            Future<long[][]>[] tasks = new Future[threadsNumber];
+        Future<long[][]>[] tasks = new Future[threadsNumber];
+        for (int i = 0; i < threadsNumber; i++) {
+            int shift = i;
+            tasks[i] = executor.submit(() -> generate(limit, base, target, shift, threadsNumber, primes));
+        }
+        result = new long[threadsNumber][][];
+        try {
             for (int i = 0; i < threadsNumber; i++) {
-                int shift = i;
-                tasks[i] = executor.submit(() -> generate(limit, base, target, shift, threadsNumber, primes));
+                result[i] = tasks[i].get();
             }
-            result = new long[threadsNumber][][];
-            try {
-                for (int i = 0; i < threadsNumber; i++) {
-                    result[i] = tasks[i].get();
-                }
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
 
         log.info("Finalizing good primes...");
@@ -127,8 +124,8 @@ public class GoodPrimes {
             i++;
 
             long dq = (p-1)/q;
-            long A = Modules.pow(a, dq, p);
-            long B = Modules.pow(b, dq, p);
+            long A = ModUtils.pow(a, dq, p);
+            long B = ModUtils.pow(b, dq, p);
             long[] x = Restrictions.calculateRestriction(A, p, B, q);
             if (x == null) {
                 return null;
@@ -137,7 +134,7 @@ public class GoodPrimes {
             r.add(x[1]);
         }
 
-        return new long[] {orderA, Modules.restoreByCRT(w.build().toArray(), r.build().toArray())%orderA};
+        return new long[] {orderA, ModUtils.restoreByCRT(w.build().toArray(), r.build().toArray())%orderA};
     }
 
     private static long findOrder(long a, long p, long[] divisors) {
@@ -158,7 +155,7 @@ public class GoodPrimes {
                     break;
                 }
             }
-            pows[i] = Modules.pow(b, d, p);
+            pows[i] = ModUtils.pow(b, d, p);
             if (pows[i] == 1) {
                 return divisors[i];
             }
