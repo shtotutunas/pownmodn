@@ -67,7 +67,7 @@ public class FactorizationDB {
             if (matcher.matches()) {
                 try {
                     int pow = Integer.parseInt(matcher.group(1));
-                    BigInteger N = base.pow(pow).subtract(target);
+                    BigInteger N = base.pow(pow).subtract(target).abs();
                     factorizations.put(pow, parseFactorization(N, matcher.group(2), primeTestCertainty, checkedPrimes));
                 } catch (Exception e) {
                     log.error("Cannot process line: {}", line, e);
@@ -126,7 +126,7 @@ public class FactorizationDB {
     {
         ExecutorService executor = Executors.newFixedThreadPool(threadsNumber);
         SortedMap<BigInteger, Future<Factorization>> tasks = new TreeMap<>();
-        scanTime.forEach((exp, x) -> tasks.put(exp, executor.submit(() -> factorizer.factorize(base.pow(exp.intValueExact()).subtract(target)))));
+        scanTime.forEach((exp, x) -> tasks.put(exp, executor.submit(() -> factorizer.factorize(base.pow(exp.intValueExact()).subtract(target).abs()))));
         List<Pair<BigInteger, Long>> notFactorized = new ArrayList<>();
         tasks.forEach((exp, task) -> {
             Factorization factorization;

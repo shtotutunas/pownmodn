@@ -1,6 +1,9 @@
 import common.Common;
+import common.TaskExecutor;
 import factorization.FactorizationDB;
 import factorization.Factorizer;
+import factorization.GmpEcmFactorizer;
+import factorization.PollardFactorizer;
 import factorization.PollardPm1;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +17,7 @@ import java.util.NavigableSet;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 public abstract class Launch {
@@ -34,7 +38,7 @@ public abstract class Launch {
             @Override
             public Factorizer getFactorizer(Primes primes) {
                 PollardPm1 pollardPm1 = (pm1FirstBound != null) ? new PollardPm1(primes, pm1FirstBound, pm1SecondBound) : null;
-                return new Factorizer(pollardPm1, primeTestCertainty, 1, rhoIterations);
+                return new PollardFactorizer(pollardPm1, 1, rhoIterations, primeTestCertainty);
             }
         };
     }
@@ -52,19 +56,36 @@ public abstract class Launch {
         };
     }
 
-    public static Launch factorizationsGenerator(int maxBitLength, Long pm1FirstBound, Long pm1SecondBound,
-                                                 long rhoIterations, int primeTestCertainty, int threadsNumber)
+    public static Launch factorizationsGeneratorGmpEcm(int maxBitLength, long B1, long C, int primeTestCertainty) {
+        return factorizationsGenerator(maxBitLength, null, primeTestCertainty, 1,
+                (primes, executor) -> new GmpEcmFactorizer(B1, C, executor, primeTestCertainty));
+    }
+
+    public static Launch factorizationsGeneratorPollard(int maxBitLength, Long pm1FirstBound, Long pm1SecondBound,
+                                                        long rhoIterations, int primeTestCertainty, int threadsNumber)
     {
+        return factorizationsGenerator(maxBitLength, Common.max(pm1SecondBound, pm1SecondBound), primeTestCertainty, threadsNumber,
+                (primes, executor) -> {
+                    PollardPm1 pollardPm1 = (pm1FirstBound != null) ? new PollardPm1(primes, pm1FirstBound, pm1SecondBound) : null;
+                    return new PollardFactorizer(pollardPm1, 2, rhoIterations, primeTestCertainty);
+                });
+    }
+
+    private static Launch factorizationsGenerator(int maxBitLength, Long primesBound,
+                                                 int primeTestCertainty, int threadsNumber,
+                                                 BiFunction<Primes, TaskExecutor, Factorizer> factorizerSupplier)
+    {
+
         Map<BigInteger, BigInteger> numToExp = new HashMap<>();
         Map<BigInteger, Long> expToCand = new HashMap<>();
         return new Launch() {
             @Override
             public long getPrimesBound() {
-                return Common.max(pm1FirstBound, pm1SecondBound, super.getPrimesBound());
+                return Common.max(primesBound, super.getPrimesBound());
             }
             @Override
             public Factorizer getFactorizer(Primes primes) {
-                return new Factorizer(null, primeTestCertainty, 0, 0);
+                return new PollardFactorizer(null, 0, 0, primeTestCertainty);
             }
             @Override
             public boolean tryFactorize(int bitLength) {
@@ -84,9 +105,8 @@ public abstract class Launch {
             }
 
             @Override
-            public void summarize(Solver solver, Primes primes) {
-                PollardPm1 pollardPm1 = (pm1FirstBound != null) ? new PollardPm1(primes, pm1FirstBound, pm1SecondBound) : null;
-                Factorizer factorizer = new Factorizer(pollardPm1, primeTestCertainty, 2, rhoIterations);
+            public void summarize(Solver solver, Primes primes, TaskExecutor executor) {
+                Factorizer factorizer = factorizerSupplier.apply(primes, executor);
                 SortedMap<BigInteger, Long> scanTime = numToExp.entrySet().stream().collect(Collectors.toMap(Map.Entry::getValue,
                         e -> expToCand.getOrDefault(e.getValue(), 0L), (x, y) -> x, TreeMap::new));
                 FactorizationDB.logFactorizations(solver.getBase(), solver.getTarget(), scanTime, factorizer, threadsNumber);
@@ -147,7 +167,7 @@ public abstract class Launch {
 
     public void registerScan(BigInteger N, long candidates) {}
 
-    public void summarize(Solver solver, Primes primes) {
+    public void summarize(Solver solver, Primes primes, TaskExecutor executor) {
         log.info("Found {} solutions: {}", solutions.size(), solutions);
     }
 

@@ -5,66 +5,44 @@ import org.apache.commons.math3.primes.Primes;
 
 import java.math.BigInteger;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.function.Function;
 
-public class Factorizer {
-
-    private final PollardPm1 pollardPm1;
+public abstract class Factorizer {
     private final int primeTestCertainty;
-    private final int pm1Tries;
-    private final long rhoIterations;
 
-    public Factorizer(PollardPm1 pollardPm1, int primeTestCertainty, int pm1Tries, long rhoIterations)
-    {
-        this.pollardPm1 = pollardPm1;
+    public Factorizer(int primeTestCertainty) {
         this.primeTestCertainty = primeTestCertainty;
-        this.pm1Tries = pm1Tries;
-        this.rhoIterations = rhoIterations;
     }
 
     public Factorization factorize(BigInteger N) {
-        return factorize(N, rhoIterations, pm1Tries);
+        return factorize(N, this::factorizeInternal);
     }
 
-    public Factorization factorize(BigInteger N, long rhoIterations, int pm1Tries) {
+    private Factorization factorize(BigInteger N, Function<BigInteger, Factorization> factorizer) {
         assert N.signum() > 0;
         if (N.equals(BigInteger.ONE)) {
             return Factorization.fromPrimeFactors(List.of());
         }
         if (N.compareTo(Common.MAX_INT) <= 0) {
             return Factorization.fromPrimeFactors(Primes.primeFactors(N.intValueExact())
-                    .stream().map(BigInteger::valueOf).collect(Collectors.toUnmodifiableList()));
+                    .stream().map(BigInteger::valueOf).toList());
         }
-
         if (N.isProbablePrime(primeTestCertainty)) {
             return Factorization.fromSingleFactor(N,true);
         }
-
-        if ((pm1Tries > 0) && (pollardPm1 != null)) {
-            BigInteger divisor = pollardPm1.findDivisor(N, pm1Tries);
-            if (divisor != null) {
-                return processDivisor(divisor, N, rhoIterations, pm1Tries);
-            }
-        }
-
-        if (rhoIterations > 0) {
-            BigInteger divisor = PollardRho.findDivisor(N, rhoIterations);
-            if (divisor != null) {
-                return processDivisor(divisor, N, rhoIterations, 0);
-            }
-        }
-
-        return Factorization.fromSingleFactor(N, false);
+        return factorizer.apply(N);
     }
 
-    private Factorization processDivisor(BigInteger divisor, BigInteger N, long rhoIterations, int pm1Tries) {
+    protected abstract Factorization factorizeInternal(BigInteger N);
+
+    protected Factorization processDivisor(BigInteger divisor, BigInteger N, Function<BigInteger, Factorization> factorizer) {
         assert divisor.compareTo(BigInteger.ONE) > 0;
         assert divisor.compareTo(N) < 0;
         BigInteger[] dr = N.divideAndRemainder(divisor);
         assert dr[1].signum() == 0;
 
-        Factorization a = factorize(divisor, rhoIterations, pm1Tries);
-        Factorization b = factorize(dr[0], rhoIterations, pm1Tries);
+        Factorization a = factorize(divisor, factorizer);
+        Factorization b = factorize(dr[0], factorizer);
         return Factorization.multiply(a, b);
     }
 }

@@ -76,6 +76,22 @@ public class Factorization {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if ((o == null) || (getClass() != o.getClass()))  {
+            return false;
+        }
+        return Arrays.equals(factors, ((Factorization) o).factors);
+    }
+
+    @Override
+    public int hashCode() {
+        return Arrays.hashCode(factors);
+    }
+
+    @Override
     public String toString() {
         if (factors.length == 0) {
             return "1";

@@ -19,15 +19,18 @@ public class Main {
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     static final long base = 2;
-    static final long target = -11;
-    static final BigInteger solutionCeil = Common.e(1, 14);
+    static final long target = 6;
+    static final BigInteger solutionCeil = Common.e(1, 13);
 
-    static final int threadsNumber = 1;
+    static final int threadsNumber = 6;
     static final int primeTestCertainty = 50;
     static final Boolean qrSievePrecalculated = null;
 
-    static final Launch launch = Launch.solverPrecalculated();
-    //static final Launch launch = Launch.factorizationsGenerator(5000, (long) 1e6, (long) 1e7, (long) 1e6, primeTestCertainty, threadsNumber);
+    //static final Launch launch = Launch.solverPrecalculated();
+
+    static final Launch launch = Launch.factorizationsGeneratorGmpEcm(7000, (long) 1e3, 30, primeTestCertainty);
+    //static final Launch launch = Launch.factorizationsGeneratorPollard(5000, (long) 1e3, (long) 1e4, (long) 1e3, primeTestCertainty, threadsNumber);
+
     //static final Launch launch = Launch.fastScan(10000000, 1000);
 
     static final long scanLogThreshold = 5000000;
@@ -68,7 +71,7 @@ public class Main {
         log.info("Solving finished in {}ms, start summarizing...", System.currentTimeMillis() - solveStartTime);
 
         long summarizeStartTime = System.currentTimeMillis();
-        launch.summarize(solver, primes);
+        launch.summarize(solver, primes, executor);
         log.info("Summarizing finished in {}ms. Total time spent: {}ms", System.currentTimeMillis() - summarizeStartTime,
                 System.currentTimeMillis() - initStartTime);
 

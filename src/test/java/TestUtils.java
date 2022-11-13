@@ -2,9 +2,14 @@ import common.ModUtils;
 import org.apache.commons.math3.util.Pair;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 public class TestUtils {
@@ -56,5 +61,48 @@ public class TestUtils {
             }
         }
         return buf.build().toArray(BigInteger[]::new);
+    }
+
+    public static long[] generateAP(long min, long max, long step) {
+        LongStream.Builder a = LongStream.builder();
+        for (long i = min; i <= max; i += step) {
+            a.add(i);
+        }
+        return a.build().toArray();
+    }
+
+    public static String[] formatTable(String[][] cells, int spaceBetweenColumns) {
+        int rowNum = cells.length;
+        int colNum = Arrays.stream(cells).mapToInt(s -> s.length).max().orElse(0);
+        int[] colWidth = IntStream.range(0, colNum).map(c -> IntStream.range(0, rowNum).filter(r -> (cells[r].length > c))
+                .map(r -> (cells[r][c] != null) ? cells[r][c].length() : 0).max().orElse(0)).toArray();
+
+        char[][] result = new char[rowNum][IntStream.of(colWidth).sum() + (colNum-1)*spaceBetweenColumns];
+        for (int r = 0; r < rowNum; r++) {
+            Arrays.fill(result[r], ' ');
+            int shift = 0;
+            for (int c = 0; c < cells[r].length; c++) {
+                if (cells[r][c] != null) {
+                    System.arraycopy(cells[r][c].toCharArray(), 0, result[r], shift + (colWidth[c]-cells[r][c].length()), cells[r][c].length());
+                }
+                shift += (colWidth[c] + spaceBetweenColumns);
+            }
+        }
+        return Arrays.stream(result).map(String::new).toArray(String[]::new);
+    }
+
+    public static class Primes {
+        private final Map<Integer, List<BigInteger>> map = new HashMap<>();
+
+        public BigInteger get(int powerOfTwo, int idx) {
+            List<BigInteger> list = map.computeIfAbsent(powerOfTwo, x -> new ArrayList<>());
+            if (list.isEmpty()) {
+                list.add(BigInteger.TWO.pow(powerOfTwo).nextProbablePrime());
+            }
+            while (idx >= list.size()) {
+                list.add(list.get(list.size()-1).nextProbablePrime());
+            }
+            return list.get(idx);
+        }
     }
 }

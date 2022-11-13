@@ -7,11 +7,41 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 class ModUtilsTest {
     private final Logger log = LoggerFactory.getLogger(getClass());
+
+    @Test
+    public void testPow() {
+        int lowBitLength = 30;
+        int highBitLength = 62;
+        int testsPerBitLength = 1;
+
+        List<BigInteger> tests = new ArrayList<>(List.of(TestUtils.generateTestNumbers(lowBitLength, highBitLength, testsPerBitLength, false, false, new Random(777))));
+        for (int i = lowBitLength; i <= highBitLength; i+=2) {
+            tests.add(BigInteger.valueOf((1L<<lowBitLength)-2));
+            tests.add(BigInteger.valueOf((1L<<lowBitLength)-1));
+            tests.add(BigInteger.valueOf((1L<<lowBitLength)));
+        }
+
+        long startTime = System.currentTimeMillis();
+        for (BigInteger b : tests) {
+            for (BigInteger n : tests) {
+                for (BigInteger m : tests) {
+                    BigInteger e = b.modPow(n, m);
+                    long a1 = ModUtils.pow(b.longValueExact(), n.longValueExact(), m.longValueExact());
+                    long a2 = ModUtils.pow(b.longValueExact(), n, m.longValueExact());
+                    Assertions.assertEquals(e.longValueExact(), a1, () ->  b + "^" + n + " mod " + m);
+                    Assertions.assertEquals(e.longValueExact(), a2, () ->  b + "^" + n + " mod " + m);
+                }
+            }
+        }
+        log.info("OK - tested on {}x{}x{} tests in {}ms", tests.size(),  tests.size(),  tests.size(), System.currentTimeMillis() - startTime);
+    }
 
     @Test
     public void testModInverse() {
@@ -29,7 +59,6 @@ class ModUtilsTest {
             }
         }
         log.info("OK - tested for {}x{} number pairs in {}ms", tests.length, tests.length, System.currentTimeMillis() - startTime);
-
     }
 
     @Test
